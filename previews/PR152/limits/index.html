@@ -86,18 +86,18 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.05       2.67       1.57   1.49e+09  -3.38e+05          0      0.848          1          1
-        4          0       6.54       4.93      0.812    2.9e+09   -2.4e+03          0       0.63          1          1
-        8          0       7.19       6.16       1.52   5.64e+09       -281  1.78e-238      0.569          1          1
-       16          0       6.35        6.8       2.99   1.11e+10        -40   8.04e-27      0.576          1          1
-       32          0       7.89       7.25       5.84   2.19e+10      -15.1   2.28e-06      0.512          1          1
-       64          5       8.28       2.28       13.4   4.53e+10      -12.2      0.176      0.659          1          1
-      128         13       8.09        2.4       28.3   9.14e+10      -12.3      0.284      0.662          1          1
-      256         33       8.36       2.36       62.6   1.82e+11        -12      0.367      0.654          1          1
-      512         65       8.48        2.5        132   3.64e+11        -12       0.37      0.646          1          1
- 1.02e+03        136       8.36       2.44        254   7.27e+11      -12.1      0.401      0.652          1          1
+        2          0       2.05       2.67       1.59   1.49e+09  -3.38e+05          0      0.848          1          1
+        4          0       6.54       4.93      0.832    2.9e+09   -2.4e+03          0       0.63          1          1
+        8          0       7.19       6.16        1.5   5.64e+09       -281  1.78e-238      0.569          1          1
+       16          0       6.35        6.8       3.38   1.11e+10        -40   8.04e-27      0.576          1          1
+       32          0       7.89       7.25        6.3   2.19e+10      -15.1   2.28e-06      0.512          1          1
+       64          5       8.28       2.28       13.2   4.53e+10      -12.2      0.176      0.659          1          1
+      128         13       8.09        2.4       29.4   9.14e+10      -12.3      0.284      0.662          1          1
+      256         33       8.36       2.36       64.7   1.82e+11        -12      0.367      0.654          1          1
+      512         65       8.48        2.5        123   3.64e+11        -12       0.37      0.646          1          1
+ 1.02e+03        136       8.36       2.44        236   7.27e+11      -12.1      0.401      0.652          1          1
  2.05e+03        290       8.32       2.41        491   1.46e+12      -12.1      0.411      0.654          1          1
-  4.1e+03        639       8.21       2.39        985   2.91e+12      -12.1      0.436      0.658          1          1
+  4.1e+03        639       8.21       2.39        892   2.91e+12      -12.1      0.436      0.658          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl. Note that <code>B_mass</code> is in solar masses, so we convert for the plot:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -209,13 +209,13 @@ chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       1.28       1.13      0.837   1.04e+07       -287          0      0.732          1          1
-        4          0      0.811       1.96     0.0183   1.02e+05       -198  7.17e-173      0.692          1          1
-        8          1        1.3       1.38     0.0385   1.88e+05     -0.413      0.487      0.702          1          1
-       16          2       1.96        1.5     0.0775   3.36e+05     0.0511       0.25      0.616          1          1
-       32          0       2.23       2.27      0.173   5.63e+05       3.85     0.0624        0.5          1          1
-       64          3        2.1       1.58       0.81   2.01e+07       9.61      0.087      0.591          1          1
-      128          4       2.18       2.43      0.549   1.82e+07       9.58      0.116      0.489          1          1
+        2          0       1.28       1.13      0.864   1.04e+07       -287          0      0.732          1          1
+        4          0      0.811       1.96     0.0184   1.02e+05       -198  7.17e-173      0.692          1          1
+        8          1        1.3       1.38     0.0392   1.88e+05     -0.413      0.487      0.702          1          1
+       16          2       1.96        1.5     0.0777   3.36e+05     0.0511       0.25      0.616          1          1
+       32          0       2.23       2.27      0.174   5.63e+05       3.85     0.0624        0.5          1          1
+       64          3        2.1       1.58      0.909   2.01e+07       9.61      0.087      0.591          1          1
+      128          4       2.18       2.43      0.596   1.82e+07       9.58      0.116      0.489          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
@@ -287,8 +287,8 @@ chain_both, pt = octofit_pigeons(model_both, n_chains=5, n_chains_variational=5,
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000076 seconds (42 allocations: 72.547 KiB)
-∇ℓπcallback(θ): 11.104964 seconds (25.10 M allocations: 1.064 GiB, 4.69% gc time, 99.99% compilation time)
+ℓπcallback(θ): 0.000075 seconds (42 allocations: 72.547 KiB)
+∇ℓπcallback(θ): 7.270115 seconds (25.10 M allocations: 1.064 GiB, 2.00% gc time, 99.99% compilation time)
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
@@ -304,16 +304,16 @@ chain_both, pt = octofit_pigeons(model_both, n_chains=5, n_chains_variational=5,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       1.89       2.38       1.63   4.31e+08  -1.27e+06          0      0.526          1          1
-        4          0       2.29        2.6      0.366   8.02e+08  -9.14e+05          0      0.456          1          1
-        8          0       2.74       2.83      0.755   1.57e+09  -4.67e+05          0      0.381          1          1
-       16          0       3.09       2.96       1.56   3.22e+09  -8.11e+04          0      0.328          1          1
-       32          0       3.68        3.3       3.09   6.62e+09  -2.24e+04          0      0.225          1          1
-       64          5       3.77       2.67       7.23   1.41e+10      -4.06          0      0.284          1          1
-      128          9       3.48       2.47       12.8   2.88e+10      -3.67          0      0.339          1          1
-      256         15       3.77       2.54       29.2   5.65e+10      -4.13          0      0.299          1          1
-      512         24       3.76       2.64       55.5   1.13e+11      -4.46          0      0.289          1          1
- 1.02e+03         57       3.72       2.57        108   2.25e+11      -3.98   2.38e-91      0.301          1          1
+        2          0       1.89       2.38       2.85   4.32e+08  -1.27e+06          0      0.526          1          1
+        4          0       2.29        2.6       0.42   8.02e+08  -9.14e+05          0      0.456          1          1
+        8          0       2.74       2.83      0.736   1.57e+09  -4.67e+05          0      0.381          1          1
+       16          0       3.09       2.96       1.43   3.22e+09  -8.11e+04          0      0.328          1          1
+       32          0       3.68        3.3       2.82   6.63e+09  -2.24e+04          0      0.225          1          1
+       64          5       3.77       2.67       7.02   1.41e+10      -4.06          0      0.284          1          1
+      128          9       3.48       2.47       12.3   2.88e+10      -3.67          0      0.339          1          1
+      256         15       3.77       2.54       26.3   5.66e+10      -4.13          0      0.299          1          1
+      512         24       3.76       2.64       51.2   1.13e+11      -4.46          0      0.289          1          1
+ 1.02e+03         57       3.72       2.57         99   2.25e+11      -3.98   2.38e-91      0.301          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Compare all three posteriors to see limits:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
@@ -347,4 +347,4 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="04b5c9df.png" alt="Example block output"/><p>For a systematic version of this analysis — injecting companions on a grid of mass and separation and measuring what fraction are recovered — see <a href="../completeness/#completeness">Detection Completeness Mapping</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 4 September 2026 03:23">Friday 4 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="04b5c9df.png" alt="Example block output"/><p>For a systematic version of this analysis — injecting companions on a grid of mass and separation and measuring what fraction are recovered — see <a href="../completeness/#completeness">Detection Completeness Mapping</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 4 September 2026 08:00">Friday 4 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -63,8 +63,8 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000022 seconds
-∇ℓπcallback(θ): 0.000059 seconds (1 allocation: 32 bytes)
+ℓπcallback(θ): 0.000035 seconds
+∇ℓπcallback(θ): 0.000066 seconds (1 allocation: 32 bytes)
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
@@ -75,21 +75,21 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 <span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-58.679069111202125, -49.42175445411231)
 <span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -52.5418157807182
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampling, beginning with adaptation phase...
-<span class="sgr32">Sampling   4%|█▍                             |  ETA: 0:00:02</span>
-<span class="sgr34">                                    iterations: 89</span>
+<span class="sgr32">Sampling   2%|▋                              |  ETA: 0:00:05</span>
+<span class="sgr34">                                    iterations: 40</span>
 <span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
-<span class="sgr34">                                       n_steps: 319</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.1</span>
+<span class="sgr34">                                       n_steps: 143</span>
 <span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.8822217620390678</span>
-<span class="sgr34">                                   log_density: -52.880421130202635</span>
-<span class="sgr34">                            hamiltonian_energy: 58.59192690125985</span>
-<span class="sgr34">                      hamiltonian_energy_error: 0.2827609645498015</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: 0.36862608655551554</span>
-<span class="sgr34">                                    tree_depth: 8</span>
+<span class="sgr34">                               acceptance_rate: 0.9166966439609882</span>
+<span class="sgr34">                                   log_density: -53.20605454349412</span>
+<span class="sgr34">                            hamiltonian_energy: 65.12623680029029</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.029123856243870705</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.20213149412056453</span>
+<span class="sgr34">                                    tree_depth: 7</span>
 <span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.23363007494798768</span>
-<span class="sgr34">                                 nom_step_size: 0.23363007494798768</span>
+<span class="sgr34">                                     step_size: 0.2059236514224329</span>
+<span class="sgr34">                                 nom_step_size: 0.2059236514224329</span>
 <span class="sgr34">                                      is_adapt: true</span>
 <span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([5.1439e-8, 0.00168849, 0.0 ...])</span>
 
@@ -107,211 +107,243 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 
 
 
-<span class="sgr32">Sampling  54%|████████████████▉              |  ETA: 0:00:01</span>
-<span class="sgr34">                                    iterations: 1089</span>
+<span class="sgr32">Sampling  11%|███▍                           |  ETA: 0:00:08</span>
+<span class="sgr34">                                    iterations: 217</span>
 <span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.08</span>
 <span class="sgr34">                                       n_steps: 63</span>
 <span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.9930584432266621</span>
-<span class="sgr34">                                   log_density: -54.98364315206918</span>
-<span class="sgr34">                            hamiltonian_energy: 60.284156701745744</span>
-<span class="sgr34">                      hamiltonian_energy_error: 0.006804249809093221</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: -0.1824090892348167</span>
-<span class="sgr34">                                    tree_depth: 6</span>
-<span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.028312698772440668</span>
-<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
-<span class="sgr34">                                      is_adapt: false</span>
-<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span class="sgr32">Sampling  62%|███████████████████▏           |  ETA: 0:00:01</span>
-<span class="sgr34">                                    iterations: 1231</span>
-<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
-<span class="sgr34">                                       n_steps: 255</span>
-<span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.9585186714305594</span>
-<span class="sgr34">                                   log_density: -55.08868988917322</span>
-<span class="sgr34">                            hamiltonian_energy: 59.48098140877373</span>
-<span class="sgr34">                      hamiltonian_energy_error: 0.038266522004207104</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: 0.11153290460351428</span>
-<span class="sgr34">                                    tree_depth: 7</span>
-<span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.028312698772440668</span>
-<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
-<span class="sgr34">                                      is_adapt: false</span>
-<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span class="sgr32">Sampling  68%|█████████████████████▏         |  ETA: 0:00:01</span>
-<span class="sgr34">                                    iterations: 1359</span>
-<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
-<span class="sgr34">                                       n_steps: 255</span>
-<span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.958536733476833</span>
-<span class="sgr34">                                   log_density: -55.5290810974055</span>
-<span class="sgr34">                            hamiltonian_energy: 60.71625769391301</span>
-<span class="sgr34">                      hamiltonian_energy_error: -0.07255680460700376</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: 1.0453968928356971</span>
-<span class="sgr34">                                    tree_depth: 7</span>
-<span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.028312698772440668</span>
-<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
-<span class="sgr34">                                      is_adapt: false</span>
-<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span class="sgr32">Sampling  75%|███████████████████████▎       |  ETA: 0:00:01</span>
-<span class="sgr34">                                    iterations: 1497</span>
-<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
-<span class="sgr34">                                       n_steps: 127</span>
-<span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.9764052861113083</span>
-<span class="sgr34">                                   log_density: -55.125201228724684</span>
-<span class="sgr34">                            hamiltonian_energy: 59.64153898814689</span>
-<span class="sgr34">                      hamiltonian_energy_error: -0.006388348032984936</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: -0.1898956766010258</span>
-<span class="sgr34">                                    tree_depth: 7</span>
-<span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.028312698772440668</span>
-<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
-<span class="sgr34">                                      is_adapt: false</span>
-<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span class="sgr32">Sampling  82%|█████████████████████████▎     |  ETA: 0:00:00</span>
-<span class="sgr34">                                    iterations: 1633</span>
-<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
-<span class="sgr34">                                       n_steps: 127</span>
-<span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.9537494707149964</span>
-<span class="sgr34">                                   log_density: -55.76197237273429</span>
-<span class="sgr34">                            hamiltonian_energy: 57.81484727795028</span>
-<span class="sgr34">                      hamiltonian_energy_error: 0.047934913994531314</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: 0.11743664052535507</span>
-<span class="sgr34">                                    tree_depth: 7</span>
-<span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.028312698772440668</span>
-<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
-<span class="sgr34">                                      is_adapt: false</span>
-<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span class="sgr32">Sampling  88%|███████████████████████████▎   |  ETA: 0:00:00</span>
-<span class="sgr34">                                    iterations: 1758</span>
-<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
-<span class="sgr34">                                       n_steps: 127</span>
-<span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 1.0</span>
-<span class="sgr34">                                   log_density: -53.93865957459828</span>
-<span class="sgr34">                            hamiltonian_energy: 56.974645762962474</span>
-<span class="sgr34">                      hamiltonian_energy_error: -0.07041895260960729</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: -0.19975570838342804</span>
-<span class="sgr34">                                    tree_depth: 7</span>
-<span class="sgr34">                               numerical_error: false</span>
-<span class="sgr34">                                     step_size: 0.028312698772440668</span>
-<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
-<span class="sgr34">                                      is_adapt: false</span>
-<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<span class="sgr32">Sampling  94%|█████████████████████████████▎ |  ETA: 0:00:00</span>
-<span class="sgr34">                                    iterations: 1887</span>
-<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
-<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
-<span class="sgr34">                                       n_steps: 47</span>
-<span class="sgr34">                                     is_accept: true</span>
-<span class="sgr34">                               acceptance_rate: 0.9477933969291048</span>
-<span class="sgr34">                                   log_density: -53.957499428073625</span>
-<span class="sgr34">                            hamiltonian_energy: 64.3365424050645</span>
-<span class="sgr34">                      hamiltonian_energy_error: -0.15222916815500298</span>
-<span class="sgr34">                  max_hamiltonian_energy_error: 0.1897754608055493</span>
+<span class="sgr34">                               acceptance_rate: 0.83205292957012</span>
+<span class="sgr34">                                   log_density: -58.314372793584766</span>
+<span class="sgr34">                            hamiltonian_energy: 65.53612227374498</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.07512920846274085</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.6310980814270266</span>
 <span class="sgr34">                                    tree_depth: 5</span>
 <span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028545525156234344</span>
+<span class="sgr34">                                 nom_step_size: 0.028545525156234344</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([9.10665e-5, 0.00777355, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  15%|████▊                          |  ETA: 0:00:07</span>
+<span class="sgr34">                                    iterations: 307</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
+<span class="sgr34">                                       n_steps: 255</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9087384559912166</span>
+<span class="sgr34">                                   log_density: -56.12656238021624</span>
+<span class="sgr34">                            hamiltonian_energy: 60.28805694069642</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.038075640392222</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.17517895835973007</span>
+<span class="sgr34">                                    tree_depth: 8</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.025424368734379074</span>
+<span class="sgr34">                                 nom_step_size: 0.025424368734379074</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([4.78048e-5, 0.00611009, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  20%|██████                         |  ETA: 0:00:05</span>
+<span class="sgr34">                                    iterations: 391</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9620865260590725</span>
+<span class="sgr34">                                   log_density: -51.55742115013942</span>
+<span class="sgr34">                            hamiltonian_energy: 55.25009782043449</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.07126575028117799</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.12972455915369352</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.03303516612194717</span>
+<span class="sgr34">                                 nom_step_size: 0.03303516612194717</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([4.78048e-5, 0.00611009, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  24%|███████▍                       |  ETA: 0:00:05</span>
+<span class="sgr34">                                    iterations: 475</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.08</span>
+<span class="sgr34">                                       n_steps: 511</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9963866915085815</span>
+<span class="sgr34">                                   log_density: -53.59437306966233</span>
+<span class="sgr34">                            hamiltonian_energy: 57.13660882558874</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.0027233231432575167</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.007971335197538565</span>
+<span class="sgr34">                                    tree_depth: 9</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.006530827876921171</span>
+<span class="sgr34">                                 nom_step_size: 0.006530827876921171</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.4561e-5, 0.00799018, 0.0 ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  28%|████████▊                      |  ETA: 0:00:04</span>
+<span class="sgr34">                                    iterations: 561</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.08</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.8123821764590854</span>
+<span class="sgr34">                                   log_density: -53.31352045206331</span>
+<span class="sgr34">                            hamiltonian_energy: 58.18614501463701</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.27887005401606757</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 18.529293626205636</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.03768513516426935</span>
+<span class="sgr34">                                 nom_step_size: 0.03768513516426935</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.4561e-5, 0.00799018, 0.0 ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  33%|██████████▎                    |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 663</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
+<span class="sgr34">                                       n_steps: 111</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.7712909061231852</span>
+<span class="sgr34">                                   log_density: -52.28267247803574</span>
+<span class="sgr34">                            hamiltonian_energy: 60.12208978496471</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.04808696168840498</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 6.368315648929666</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.035913188548946685</span>
+<span class="sgr34">                                 nom_step_size: 0.035913188548946685</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.4561e-5, 0.00799018, 0.0 ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  38%|███████████▉                   |  ETA: 0:00:03</span>
+<span class="sgr34">                                    iterations: 767</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.4579989268861756</span>
+<span class="sgr34">                                   log_density: -57.8984161774545</span>
+<span class="sgr34">                            hamiltonian_energy: 60.42106173117778</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.8593549956843276</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 1.6047206602226254</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.03230929997737384</span>
+<span class="sgr34">                                 nom_step_size: 0.03230929997737384</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([2.4561e-5, 0.00799018, 0.0 ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  90%|████████████████████████████   |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1807</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9896215412752949</span>
+<span class="sgr34">                                   log_density: -53.49280725960287</span>
+<span class="sgr34">                            hamiltonian_energy: 61.30195552096626</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.6127496206229139</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -1.092953826438773</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
 <span class="sgr34">                                     step_size: 0.028312698772440668</span>
 <span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
 <span class="sgr34">                                      is_adapt: false</span>
@@ -331,7 +363,71 @@ display(chain)</code></pre><pre class="documenter-example-output"><code class="n
 
 
 
-<span class="sgr32">Sampling 100%|███████████████████████████████| Time: 0:00:02</span>
+<span class="sgr32">Sampling  94%|█████████████████████████████▏ |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1883</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 191</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9924519917769326</span>
+<span class="sgr34">                                   log_density: -52.98304703385901</span>
+<span class="sgr34">                            hamiltonian_energy: 56.05294408476303</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.06404102873804618</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.1811147737563843</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  98%|██████████████████████████████▍|  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1957</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9840447417898335</span>
+<span class="sgr34">                                   log_density: -56.77189047788202</span>
+<span class="sgr34">                            hamiltonian_energy: 62.85719877217714</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.06001054161861674</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.4256243005944924</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling 100%|███████████████████████████████| Time: 0:00:03</span>
 <span class="sgr34">                                    iterations: 2000</span>
 <span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
 <span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
@@ -355,7 +451,7 @@ ratio_divergent_transitions = 0.0
 mean_tree_depth             = 6.675
 max_tree_depth_frac         = 0.0
 total_steps                 = 272112
-μs/step (approx.)           = 8.2</code></pre><h2 id="Calculating-Pointwise-Likelihoods"><a class="docs-heading-anchor" href="#Calculating-Pointwise-Likelihoods">Calculating Pointwise Likelihoods</a><a id="Calculating-Pointwise-Likelihoods-1"></a><a class="docs-heading-anchor-permalink" href="#Calculating-Pointwise-Likelihoods" title="Permalink"></a></h2><p>After you have defined a model and sampled from its posterior (e.g. via <code>octofit</code>), you can see how each datapoint is influencing the posterior:</p><pre><code class="language-julia hljs">@time likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+μs/step (approx.)           = 15.0</code></pre><h2 id="Calculating-Pointwise-Likelihoods"><a class="docs-heading-anchor" href="#Calculating-Pointwise-Likelihoods">Calculating Pointwise Likelihoods</a><a id="Calculating-Pointwise-Likelihoods-1"></a><a class="docs-heading-anchor-permalink" href="#Calculating-Pointwise-Likelihoods" title="Permalink"></a></h2><p>After you have defined a model and sampled from its posterior (e.g. via <code>octofit</code>), you can see how each datapoint is influencing the posterior:</p><pre><code class="language-julia hljs">@time likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
 size(likelihood_mat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(1000, 8)</code></pre><p><code>likelihood_mat</code> is an <code>N_sample × N_data</code> matrix, and <code>epochs</code> labels each column with the epoch of the data row it came from.</p><p>The columns are ordered exactly as the data are defined in the model: observation by observation in the order you listed them in <code>System(...; observations=[...])</code>, and within each observation, row by row in table order.</p><pre><code class="language-julia hljs">epochs</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">8-element Vector{Float64}:
  50000.0
  50120.0
@@ -371,43 +467,7 @@ result = psis_loo(
     collect(likelihood_mat&#39;),
     chain_index=ones(Int, size(chain, 1))
 )
-display(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-  25731.6 ms<span class="sgr32">  ✓ </span><span class="sgr90">NamedDims</span>
-   1562.8 ms<span class="sgr32">  ✓ </span><span class="sgr90">NamedDims → AbstractFFTsExt</span>
-   4405.6 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys</span>
-   2223.4 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → StatisticsExt</span>
-   1434.2 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → AbstractFFTsExt</span>
-   2658.1 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → StatsBaseExt</span>
-   5339.1 ms<span class="sgr32">  ✓ </span>ParetoSmooth
-  7 dependencies successfully precompiled in 192 seconds. 67 already precompiled.
-  <span class="sgr33">67</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AbstractFFTs, AliasTables, Base64, CompilerSupportLibraries_jll, Crayons, DataAPI, DataStructures, DataValueInterfaces, Dates, Distributions, DocStringExtensions, FillArrays, FillArrays → FillArraysPDMatsExt, FillArrays → FillArraysSparseArraysExt, FillArrays → FillArraysStatisticsExt, Gamma, HypergeometricFunctions, InteractiveUtils, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, IrrationalConstants, IteratorInterfaceExtensions, JLLWrappers, JuliaSyntaxHighlighting, LaTeXStrings, LogExpFunctions, MCMCDiagnosticTools, MLJModelInterface, Markdown, Missings, OpenLibm_jll, OpenSpecFun_jll, OrderedCollections, PDMats, PDMats → StatsBaseExt, PrecompileTools, Preferences, PrettyTables, Printf, PtrArrays, QuadGK, REPL, Reexport, Requires, Rmath, Rmath_jll, ScientificTypesBase, Serialization, SortingAlgorithms, SparseArrays, SpecialFunctions, StatisticalTraits, Statistics, Statistics → SparseArraysExt, StatsAPI, StatsBase, StatsFuns, StringManipulation, StyledStrings, SuiteSparse, SuiteSparse_jll, TOML, TableTraits, Tables, UUIDs and Unicode). Restart julia to access the new versions. Otherwise, 7 dependents of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-   1408.5 ms<span class="sgr32">  ✓ </span><span class="sgr90">NamedDims → CovarianceEstimationExt</span>
-   1778.6 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → CovarianceEstimationExt</span>
-  2 dependencies successfully precompiled in 7 seconds. 35 already precompiled.
-  <span class="sgr33">35</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (Adapt, Adapt → AdaptSparseArraysExt, AliasTables, AxisKeys, AxisKeys → StatisticsExt, AxisKeys → StatsBaseExt, CovarianceEstimation, DataAPI, DataStructures, DataValueInterfaces, DocStringExtensions, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, IrrationalConstants, IteratorInterfaceExtensions, LogExpFunctions, Missings, NamedDims, OrderedCollections, Printf, PtrArrays, Serialization, SortingAlgorithms, SparseArrays, Statistics, Statistics → SparseArraysExt, StatsAPI, StatsBase, SuiteSparse_jll, TSVD, TableTraits, Tables, Unicode and WoodburyMatrices). Restart julia to access the new versions. Otherwise, 2 dependents of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-   1492.4 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → ChainRulesCoreExt</span>
-   2503.6 ms<span class="sgr32">  ✓ </span><span class="sgr90">NamedDims → ChainRulesCoreExt</span>
-  2 dependencies successfully precompiled in 7 seconds. 21 already precompiled.
-  <span class="sgr33">21</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AxisKeys, AxisKeys → StatisticsExt, ChainRulesCore, Compat, Compat → CompatLinearAlgebraExt, DataAPI, DataValueInterfaces, Dates, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, IteratorInterfaceExtensions, NamedDims, OrderedCollections, Printf, Statistics, TOML, TableTraits, Tables, UUIDs and Unicode). Restart julia to access the new versions. Otherwise, 2 dependents of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-   2338.9 ms<span class="sgr32">  ✓ </span><span class="sgr90">Accessors → AxisKeysExt</span>
-  1 dependency successfully precompiled in 15 seconds. 27 already precompiled.
-  <span class="sgr33">27</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (Accessors, Accessors → IntervalSetsExt, Accessors → LinearAlgebraExt, AxisKeys, AxisKeys → StatisticsExt, CompositionsBase, CompositionsBase → CompositionsBaseInverseFunctionsExt, ConstructionBase, ConstructionBase → ConstructionBaseIntervalSetsExt, ConstructionBase → ConstructionBaseLinearAlgebraExt, DataAPI, DataValueInterfaces, Dates, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, InverseFunctions, InverseFunctions → InverseFunctionsDatesExt, IteratorInterfaceExtensions, MacroTools, NamedDims, OrderedCollections, Printf, Statistics, TableTraits, Tables and Unicode). Restart julia to access the new versions. Otherwise, 1 dependent of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-   1667.9 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → InvertedIndicesExt</span>
-  1 dependency successfully precompiled in 2 seconds. 14 already precompiled.
-  <span class="sgr33">14</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AxisKeys, AxisKeys → StatisticsExt, DataAPI, DataValueInterfaces, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, InvertedIndices, IteratorInterfaceExtensions, NamedDims, OrderedCollections, Statistics, TableTraits and Tables). Restart julia to access the new versions. Otherwise, 1 dependent of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-   1030.7 ms<span class="sgr32">  ✓ </span><span class="sgr90">AxisKeys → OffsetArraysExt</span>
-  1 dependency successfully precompiled in 3 seconds. 14 already precompiled.
-  <span class="sgr33">14</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AxisKeys, AxisKeys → StatisticsExt, DataAPI, DataValueInterfaces, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, IteratorInterfaceExtensions, NamedDims, OffsetArrays, OrderedCollections, Statistics, TableTraits and Tables). Restart julia to access the new versions. Otherwise, 1 dependent of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
-   3912.4 ms<span class="sgr32">  ✓ </span>ParetoSmooth → ParetoSmoothMCMCChainsExt
-  1 dependency successfully precompiled in 69 seconds. 147 already precompiled.
-  <span class="sgr33">146</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AbstractFFTs, AbstractFFTs → AbstractFFTsChainRulesCoreExt, AbstractMCMC, AbstractTrees, Accessors, Accessors → AxisKeysExt, Accessors → IntervalSetsExt, Accessors → LinearAlgebraExt, Accessors → StaticArraysExt, Adapt, Adapt → AdaptSparseArraysExt, Adapt → AdaptStaticArraysExt, AliasTables, ArgCheck, AxisAlgorithms, AxisArrays, AxisKeys, AxisKeys → AbstractFFTsExt, AxisKeys → ChainRulesCoreExt, AxisKeys → OffsetArraysExt, AxisKeys → StatisticsExt, AxisKeys → StatsBaseExt, BangBang, BangBang → BangBangChainRulesCoreExt, BangBang → BangBangStaticArraysExt, BangBang → BangBangTablesExt, Base64, ChainRulesCore, ChainRulesCore → ChainRulesCoreSparseArraysExt, Compat, Compat → CompatLinearAlgebraExt, CompilerSupportLibraries_jll, CompositionsBase, CompositionsBase → CompositionsBaseInverseFunctionsExt, ConsoleProgressMonitor, ConstructionBase, ConstructionBase → ConstructionBaseIntervalSetsExt, ConstructionBase → ConstructionBaseLinearAlgebraExt, ConstructionBase → ConstructionBaseStaticArraysExt, Crayons, DataAPI, DataStructures, DataValueInterfaces, Dates, Distributed, Distributions, Distributions → DistributionsChainRulesCoreExt, DocStringExtensions, FFTA, FillArrays, FillArrays → FillArraysPDMatsExt, FillArrays → FillArraysSparseArraysExt, FillArrays → FillArraysStaticArraysExt, FillArrays → FillArraysStatisticsExt, Gamma, HypergeometricFunctions, InitialValues, IntegerMathUtils, InteractiveUtils, Interpolations, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsRecipesBaseExt, IntervalSets → IntervalSetsStatisticsExt, InverseFunctions, InverseFunctions → InverseFunctionsDatesExt, IrrationalConstants, IterTools, IteratorInterfaceExtensions, JLLWrappers, JuliaSyntaxHighlighting, KernelDensity, LaTeXStrings, LeftChildRightSiblingTrees, LogDensityProblems, LogExpFunctions, LogExpFunctions → LogExpFunctionsChainRulesCoreExt, LogExpFunctions → LogExpFunctionsInverseFunctionsExt, Logging, LoggingExtras, MCMCChains, MCMCDiagnosticTools, MLJModelInterface, MacroTools, Markdown, Missings, Mmap, MuladdMacro, NamedDims, NamedDims → AbstractFFTsExt, NamedDims → ChainRulesCoreExt, NaturalSort, OffsetArrays, OffsetArrays → OffsetArraysAdaptExt, OpenLibm_jll, OpenSpecFun_jll, OrderedCollections, PDMats, PDMats → StatsBaseExt, ParetoSmooth, PrecompileTools, Preferences, PrettyTables, Primes, Printf, ProgressLogging, ProgressMeter, PtrArrays, QuadGK, REPL, RangeArrays, Ratios, RecipesBase, Reexport, Requires, Rmath, Rmath_jll, ScientificTypesBase, Serialization, SortingAlgorithms, SparseArrays, SpecialFunctions, SpecialFunctions → SpecialFunctionsChainRulesCoreExt, StaticArrays, StaticArrays → StaticArraysChainRulesCoreExt, StaticArrays → StaticArraysStatisticsExt, StaticArraysCore, StatisticalTraits, Statistics, Statistics → SparseArraysExt, StatsAPI, StatsBase, StatsFuns, StatsFuns → StatsFunsChainRulesCoreExt, StatsFuns → StatsFunsInverseFunctionsExt, StringManipulation, StyledStrings, SuiteSparse, SuiteSparse_jll, TOML, TableTraits, Tables, TerminalLoggers, UUIDs, Unicode and WoodburyMatrices). Restart julia to access the new versions. Otherwise, 2 dependents of these packages may trigger further precompilation to work with the unexpected versions.
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>No source provided for samples; variables are assumed to be from a Markov Chain. If the samples are independent, specify this with keyword argument `source=:other`.
+display(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>No source provided for samples; variables are assumed to be from a Markov Chain. If the samples are independent, specify this with keyword argument `source=:other`.
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Some Pareto k values are slightly high (&gt;.5); some pointwise estimates may be slow to converge or have high variance.
 Results of PSIS-LOO-CV with 1000 Monte Carlo samples and 8 data points. Total Monte Carlo SE of 0.082.
 ┌───────────┬────────┬──────────┬───────┬─────────┐
@@ -493,8 +553,8 @@ display(result_bad)</code></pre><pre class="documenter-example-output"><code cla
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000003 seconds
-∇ℓπcallback(θ): 0.000033 seconds (1 allocation: 32 bytes)
+ℓπcallback(θ): 0.000010 seconds
+∇ℓπcallback(θ): 0.000144 seconds (1 allocation: 32 bytes)
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
@@ -574,8 +634,8 @@ gpi_only_chain = octofit(gpi_only_model, verbosity=0)</code></pre><pre class="do
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000010 seconds
-∇ℓπcallback(θ): 0.000024 seconds (1 allocation: 32 bytes)
+ℓπcallback(θ): 0.000041 seconds
+∇ℓπcallback(θ): 0.000048 seconds (1 allocation: 32 bytes)
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
@@ -617,4 +677,4 @@ grouped_epochs</code></pre><pre class="documenter-example-output"><code class="n
  [50000.0, 50120.0]
  [50240.0, 50360.0, 50480.0]
  [50600.0, 50720.0, 50840.0]</code></pre><h2 id="Observations-that-cannot-be-subset"><a class="docs-heading-anchor" href="#Observations-that-cannot-be-subset">Observations that cannot be subset</a><a id="Observations-that-cannot-be-subset-1"></a><a class="docs-heading-anchor-permalink" href="#Observations-that-cannot-be-subset" title="Permalink"></a></h2><p>Not every likelihood decomposes into independent per-row terms. The canonical case is <code>MarginalizedRVObs</code> from OctofitterRadialVelocity: it integrates the instrument&#39;s zero point out analytically, which couples every point in that instrument, so &quot;the likelihood of row 7&quot; does not exist as a quantity. Asking for it produces an error naming the offending observation and its type, rather than a bare failure from inside the machinery:</p><pre><code class="language-julia hljs">Octofitter.pointwise_like(model_with_marginalized_rv, chain)
-# ERROR: ArgumentError: Cannot subset the data of observation &quot;HIRES&quot; (a MarginalizedRVObs), …</code></pre><p>Use a plain <code>RadialVelocityObs</code> with an explicit <code>offset</code> variable if you need to cross-validate radial velocities.</p><p>Holding out rows from a <code>RadialVelocityObs</code> that carries a Gaussian process works with <strong>both</strong> GP backends — <strong>Celerite</strong> and <strong>AbstractGPs</strong> — and does all the behind the scenes work to do cross-validation correctly in the presence of a Gaussian process: the process is conditioned on the retained rows only, and each held-out point is then scored against the predictive mean and variance there, with that point&#39;s own measurement error and jitter added.</p><h2 id="See-also"><a class="docs-heading-anchor" href="#See-also">See also</a><a id="See-also-1"></a><a class="docs-heading-anchor-permalink" href="#See-also" title="Permalink"></a></h2><ul><li><a href="../post-pred/#Posterior-Predictive-Checks">Posterior Predictive Checks</a> — the qualitative counterpart: does the fitted model reproduce the data at all?</li><li><a href="../rv-multi-planet/#bayesian-evidence">Bayesian evidence</a> — comparing whole models rather than individual points.</li><li><a href="../api/#Octofitter.prior_only_model"><code>prior_only_model</code></a> — a copy of the model with its data likelihoods replaced by no-ops.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../post-pred/">« Posterior Predictive Checks</a><a class="docs-footer-nextpage" href="../sbc/">Simulation Based Calibration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 4 September 2026 03:24">Friday 4 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# ERROR: ArgumentError: Cannot subset the data of observation &quot;HIRES&quot; (a MarginalizedRVObs), …</code></pre><p>Use a plain <code>RadialVelocityObs</code> with an explicit <code>offset</code> variable if you need to cross-validate radial velocities.</p><p>Holding out rows from a <code>RadialVelocityObs</code> that carries a Gaussian process works with <strong>both</strong> GP backends — <strong>Celerite</strong> and <strong>AbstractGPs</strong> — and does all the behind the scenes work to do cross-validation correctly in the presence of a Gaussian process: the process is conditioned on the retained rows only, and each held-out point is then scored against the predictive mean and variance there, with that point&#39;s own measurement error and jitter added.</p><h2 id="See-also"><a class="docs-heading-anchor" href="#See-also">See also</a><a id="See-also-1"></a><a class="docs-heading-anchor-permalink" href="#See-also" title="Permalink"></a></h2><ul><li><a href="../post-pred/#Posterior-Predictive-Checks">Posterior Predictive Checks</a> — the qualitative counterpart: does the fitted model reproduce the data at all?</li><li><a href="../rv-multi-planet/#bayesian-evidence">Bayesian evidence</a> — comparing whole models rather than individual points.</li><li><a href="../api/#Octofitter.prior_only_model"><code>prior_only_model</code></a> — a copy of the model with its data likelihoods replaced by no-ops.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../post-pred/">« Posterior Predictive Checks</a><a class="docs-footer-nextpage" href="../sbc/">Simulation Based Calibration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 4 September 2026 08:00">Friday 4 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
