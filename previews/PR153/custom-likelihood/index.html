@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Custom Likelihoods · Octofitter.jl</title><meta name="title" content="Custom Likelihoods · Octofitter.jl"/><meta property="og:title" content="Custom Likelihoods · Octofitter.jl"/><meta property="twitter:title" content="Custom Likelihoods · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li class="is-active"><a class="tocitem" href>Custom Likelihoods</a><ul class="internal"><li><a class="tocitem" href="#First:-is-it-an-observation-at-all?"><span>First: is it an observation at all?</span></a></li><li><a class="tocitem" href="#The-interface"><span>The interface</span></a></li><li><a class="tocitem" href="#Creating-an-observation-type"><span>Creating an observation type</span></a></li><li><a class="tocitem" href="#Declaring-the-references-and-the-epochs"><span>Declaring the references and the epochs</span></a></li><li><a class="tocitem" href="#Create-the-likelihood-function"><span>Create the likelihood function</span></a></li><li><a class="tocitem" href="#Using-your-custom-observation"><span>Using your custom observation</span></a></li><li><a class="tocitem" href="#Bonus:-the-generative-model"><span>Bonus: the generative model</span></a></li><li><a class="tocitem" href="#Bonus:-cross-validation"><span>Bonus: cross-validation</span></a></li><li><a class="tocitem" href="#Bonus:-appearing-in-octoplot"><span>Bonus: appearing in <code>octoplot</code></span></a></li><li><a class="tocitem" href="#Where-to-look-next"><span>Where to look next</span></a></li></ul></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Documentation</a></li><li class="is-active"><a href>Custom Likelihoods</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Custom Likelihoods</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/custom-likelihood.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Adding-a-Custom-Observation-Type"><a class="docs-heading-anchor" href="#Adding-a-Custom-Observation-Type">Adding a Custom Observation Type</a><a id="Adding-a-Custom-Observation-Type-1"></a><a class="docs-heading-anchor-permalink" href="#Adding-a-Custom-Observation-Type" title="Permalink"></a></h1><p>It&#39;s fairly straightforward to add support for a new kind of observation to Octofitter.jl. You can also follow the same workflow if you want to handle an existing kind of observation in a new way—say, tweaking a calculation, or using Gaussian processes to better model noise in radial velocity data.</p><p>All the existing observation types are listed in <a href="https://github.com/sefffal/Octofitter.jl/tree/main/src/likelihoods"><code>src/likelihoods</code></a> and can be used as examples. Two are worth reading first:</p><ul><li><a href="../api/#Octofitter.PhotometryObs"><code>PhotometryObs</code></a> (<code>src/likelihoods/photometry.jl</code>) — the smallest complete type. It touches no epoch and no orbit, so it is nothing but the interface.</li><li><a href="../api/#Octofitter.RelAstromObs"><code>RelAstromObs</code></a> (<code>src/likelihoods/relative-astrometry.jl</code>) — the canonical one. Everything below is a stripped-down version of it.</li></ul><h2 id="First:-is-it-an-observation-at-all?"><a class="docs-heading-anchor" href="#First:-is-it-an-observation-at-all?">First: is it an observation at all?</a><a id="First:-is-it-an-observation-at-all?-1"></a><a class="docs-heading-anchor-permalink" href="#First:-is-it-an-observation-at-all?" title="Permalink"></a></h2><p>This is the question to settle before writing any code, and the answer follows one rule:</p><div class="admonition is-info" id="Observation,-or-prior-term?-5125e32234ed5db0"><header class="admonition-header">Observation, or prior term?<a class="admonition-anchor" href="#Observation,-or-prior-term?-5125e32234ed5db0" title="Permalink"></a></header><div class="admonition-body"><p><strong>If it carries data you might want to hold out or simulate, it is an observation. If it only reshapes the prior, it is a <code>~</code> line in a <code>@variables</code> block.</strong></p></div></div><p>A <code>~</code> line whose left-hand side is an expression rather than a fresh variable name is already a fully-supported likelihood contribution. It needs no type, no file, and no method:</p><pre><code class="language-julia hljs">using Octofitter, Distributions
+
+A = Body(name=&quot;A&quot;, variables=@variables begin
+    mass ~ truncated(Normal(1.2, 0.1), lower=0.1)
+end)
+
+b = Body(name=&quot;b&quot;, about=A, variables=@variables begin
+    a ~ LogUniform(1.0, 100.0)
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ Uniform(0, 2pi)
+    Ω ~ Uniform(0, 2pi)
+    θ ~ Uniform(0, 2pi)
+    epoch = 50420.0
+    # An ad-hoc constraint: a published dynamical-stability argument puts the
+    # apoapsis near 12 au and rules out anything beyond 20 au. This is a `~`
+    # line, not an observation.
+    a * (1 + e) ~ truncated(Normal(12.0, 3.0), upper=20.0)
+end)</code></pre><p>Under the hood that becomes an <code>Octofitter.UserLikelihood</code> with <code>_isprior = true</code>: it reshapes the prior rather than adding data, so it is reported under the chain&#39;s <code>logprior</code> rather than its <code>loglike</code>, has no table to subset, and has no <code>generate_from_params</code>. It is not held out by cross-validation, and it cannot be used to simulate data.</p><p>That is the trade. Write a real observation type when:</p><ul><li>the numbers are <strong>measurements</strong>, so you want <a href="../cross-validation/#cross-validation">Cross-Validation</a> to be able to hold rows out; or</li><li>you want <a href="../api/#Octofitter.generate_from_params"><code>generate_from_params</code></a> to replicate them, for <a href="../post-pred/#Posterior-Predictive-Checks">Posterior Predictive Checks</a>, <a href="../sbc/#sbc">Simulation Based Calibration</a>, or completeness mapping; or</li><li>the comparison needs the <em>solved trajectory</em> — a position, a velocity, an epoch — rather than the parameters alone.</li></ul><p><code>PhotometryObs</code> is the borderline case that was decided this way on purpose: <code>flux_H ~ Normal(15.0, 3.0)</code> in a body&#39;s block expresses exactly the same arithmetic, but only <code>PhotometryObs(phot_data; target=b, band=:H, name=&quot;NIRC2&quot;)</code> can be cross-validated or simulated.</p><h2 id="The-interface"><a class="docs-heading-anchor" href="#The-interface">The interface</a><a id="The-interface-1"></a><a class="docs-heading-anchor-permalink" href="#The-interface" title="Permalink"></a></h2><p>An observation is <strong>data + a <code>target</code> reference + a <code>ref</code> reference + its own variables</strong>. There is one context type, <a href="../api/#Octofitter.ObsContext"><code>ObsContext</code></a>.</p><table><tr><th style="text-align: right">method</th><th style="text-align: right">required?</th><th style="text-align: right">what it does</th></tr><tr><td style="text-align: right"><code>Octofitter.ln_like(obs, ctx::ObsContext)</code></td><td style="text-align: right"><strong>yes</strong></td><td style="text-align: right">the log-likelihood</td></tr><tr><td style="text-align: right"><code>Octofitter.refspecs(obs)</code></td><td style="text-align: right">if it touches an orbit</td><td style="text-align: right">tuple of reference specs, validated at model-build time</td></tr><tr><td style="text-align: right"><code>Octofitter.epochs(obs)</code></td><td style="text-align: right">if <code>obs.table.epoch</code> is not the whole story</td><td style="text-align: right">epochs [MJD] to solve at, in table order</td></tr><tr><td style="text-align: right"><code>Octofitter.likelihoodname(obs)</code></td><td style="text-align: right">no (defaults to <code>obs.name</code>)</td><td style="text-align: right">labels this observation&#39;s variables in the chain</td></tr><tr><td style="text-align: right"><code>Octofitter.likeobj_from_epoch_subset(obs, inds)</code></td><td style="text-align: right">for cross-validation</td><td style="text-align: right">a copy restricted to rows <code>inds</code></td></tr><tr><td style="text-align: right"><code>Octofitter.simulate(obs, ctx)</code></td><td style="text-align: right">no</td><td style="text-align: right">the forward model, as data</td></tr><tr><td style="text-align: right"><code>Octofitter.generate_from_params(obs, ctx; add_noise)</code></td><td style="text-align: right">for simulation/SBC</td><td style="text-align: right">a copy carrying simulated data</td></tr><tr><td style="text-align: right"><code>Octofitter._isprior(obs)</code></td><td style="text-align: right">no (defaults <code>false</code>)</td><td style="text-align: right"><code>true</code> for terms that carry no data</td></tr><tr><td style="text-align: right"><code>Octofitter._refdesc(obs)</code></td><td style="text-align: right">no</td><td style="text-align: right">one-line description for <code>show</code></td></tr><tr><td style="text-align: right"><code>Octofitter.plotchannels(obs)</code> / <code>Octofitter.residuals(obs, ctx)</code></td><td style="text-align: right">no</td><td style="text-align: right">participate in <code>octoplot</code></td></tr></table><h2 id="Creating-an-observation-type"><a class="docs-heading-anchor" href="#Creating-an-observation-type">Creating an observation type</a><a id="Creating-an-observation-type-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-an-observation-type" title="Permalink"></a></h2><p>The first step is to create a new data type to hold the observations. We will write <code>SepObs</code>: the projected separation (in mas) between a target and a reference, at a set of epochs.</p><pre><code class="language-julia hljs">using Octofitter: AbstractObs, ObsContext, Priors, Derived
+using Octofitter.Tables: columnnames
+
+&quot;&quot;&quot;
+    SepObs(data; target, ref, name, variables=@variables begin end)
+
+Projected separation [mas] of `target` from `ref`.
+
+`data` needs `:epoch` [MJD], `:sep` [mas] and `:σ_sep` [mas] columns.
+
+# Variables
+  - `jitter` [mas] — added in quadrature to `σ_sep`.
+&quot;&quot;&quot;
+struct SepObs{TTable&lt;:Table,TT,TR} &lt;: AbstractObs
+    table::TTable
+    priors::Priors
+    derived::Derived
+    target::TT
+    ref::TR
+    name::String
+end
+
+function SepObs(observations;
+                target,
+                ref,
+                name,
+                variables::Tuple{Priors,Derived}=(Priors(), Derived()))
+    (priors, derived) = variables
+    table = Table(observations)
+    Octofitter.equal_length_cols(table) ||
+        error(&quot;The columns in the input data do not all have the same length&quot;)
+    expected = (:epoch, :sep, :σ_sep)
+    issubset(expected, columnnames(table)) ||
+        error(&quot;Expected columns $expected&quot;)
+
+    # Store *reference specs*, not the model nodes the caller passed. A spec is
+    # a singleton carrying its content in type parameters, so resolving it
+    # against a sample&#39;s system constant-folds and allocates nothing.
+    t, r = Octofitter.refspec(target), Octofitter.refspec(ref)
+    return SepObs{typeof(table),typeof(t),typeof(r)}(
+        table, priors, derived, t, r, String(name))
+end</code></pre><p>The observation type carries:</p><ul><li><strong><code>table</code></strong> — the observational data, as a TypedTables.Table</li><li><strong><code>name</code></strong> — used for variable naming in MCMC chains, and unique within a system</li><li><strong><code>priors</code></strong> and <strong><code>derived</code></strong> — observation-specific variables from the <code>@variables</code> block</li><li><strong><code>target</code></strong> and <strong><code>ref</code></strong> — the two references this observation measures between</li></ul><p>Try to follow the advice in the Julia Manual&#39;s performance tips section to ensure you&#39;ve created a fully &quot;concrete&quot; type. This won&#39;t affect correctness, but will be important for performance down the road.</p><h2 id="Declaring-the-references-and-the-epochs"><a class="docs-heading-anchor" href="#Declaring-the-references-and-the-epochs">Declaring the references and the epochs</a><a id="Declaring-the-references-and-the-epochs-1"></a><a class="docs-heading-anchor-permalink" href="#Declaring-the-references-and-the-epochs" title="Permalink"></a></h2><pre><code class="language-julia hljs"># Validated against the system&#39;s body list at model-build time, and printed by `show`.
+Octofitter.refspecs(obs::SepObs) = (obs.target, obs.ref)
+
+# The default `epochs` already reads `obs.table.epoch`, so this method is
+# redundant here — it is written out to show what the contract is. Return
+# `Float64[]` if your observation needs no trajectory at all.
+Octofitter.epochs(obs::SepObs) = collect(Float64, obs.table.epoch)</code></pre><h2 id="Create-the-likelihood-function"><a class="docs-heading-anchor" href="#Create-the-likelihood-function">Create the likelihood function</a><a id="Create-the-likelihood-function-1"></a><a class="docs-heading-anchor-permalink" href="#Create-the-likelihood-function" title="Permalink"></a></h2><p>Now extend <code>Octofitter.ln_like</code> for your type. Inside it you receive an <a href="../api/#Octofitter.ObsContext"><code>ObsContext</code></a>:</p><ul><li><strong><code>ctx.θ_system</code></strong> — system-level parameters (<code>ctx.θ_system.plx</code>) and every body&#39;s namespace (<code>ctx.θ_system.bodies.b.a</code>)</li><li><strong><code>ctx.θ_obs</code></strong> — this observation&#39;s own variables, from its <code>@variables</code> block</li><li><strong><code>ctx.system</code></strong> — the <code>PlanetOrbits.System</code> built from this sample&#39;s parameters</li><li><strong><code>ctx.traj</code></strong> — the trajectory solved <em>once</em> for the whole model, over the sorted, deduplicated union of every observation&#39;s epochs</li><li><strong><code>ctx.buf</code></strong> — a per-sample scratch arena (Bumper.jl) for temporaries</li><li><strong><code>solutionat(ctx, i)</code></strong> — the per-epoch solution for <strong>row <code>i</code> of this observation&#39;s table</strong></li></ul><pre><code class="language-julia hljs">function Octofitter.ln_like(obs::SepObs, ctx::ObsContext)
+    # Never assert `Float64`: under ForwardDiff these values are `Dual`s.
+    T = Octofitter._system_number_type(ctx.θ_system)
+
+    θ_obs = ctx.θ_obs
+    jitter = hasproperty(θ_obs, :jitter) ? θ_obs.jitter : zero(T)
+
+    # Resolve the references ONCE, outside the epoch loop. `Octofitter.ref`
+    # returns a `BodyRef` or a `WeightedPoint`; `resolverefs(ctx, specs)` does
+    # a whole tuple at a time.
+    target = Octofitter.ref(ctx, obs.target)
+    reference = Octofitter.ref(ctx, obs.ref)
+
+    ll = zero(T)
+    for i in eachindex(obs.table.epoch)
+        # Use the pre-solved trajectory. Index it by *table row*, not by epoch:
+        # `solutionat` maps through this observation&#39;s own row → column map.
+        sol = solutionat(ctx, i)
+
+        Δα = raoff(sol, target, reference)
+        Δδ = decoff(sol, target, reference)
+        sep_model = hypot(Δα, Δδ)
+
+        resid = sep_model - obs.table.sep[i]
+        σ² = obs.table.σ_sep[i]^2 + jitter^2
+        ll += -(1 / 2) * resid^2 / σ² - log(sqrt(2π * σ²))
+    end
+    return ll
+end</code></pre><p>Points worth copying:</p><ul><li><strong>Resolve references outside the loop.</strong> <code>Octofitter.ref(ctx, spec)</code> constant-folds; calling it per epoch does not.</li><li><strong>Use <code>Octofitter._system_number_type(ctx.θ_system)</code>, never <code>Float64</code>.</strong> Anything typed to <code>Float64</code> breaks ForwardDiff, and Octofitter&#39;s default sampler is gradient-based.</li><li><strong>Use <code>solutionat(ctx, i)</code>, not <code>ctx.traj[i]</code>.</strong> The trajectory is over the deduplicated, sorted epoch <em>union</em> of the whole model — several observations share it — so table row <code>i</code> is generally not trajectory column <code>i</code>.</li><li><strong>For temporaries, use <code>ctx.buf</code></strong> rather than allocating: <code>@no_escape ctx.buf begin; v = @alloc(T, n); …; end</code> (with <code>using Bumper</code>). One arena, sized to the model at build time, covers the whole evaluation.</li></ul><p>If your likelihood requires new parameters, define them in the <code>variables</code> block of the constructor using the <code>@variables begin; end</code> syntax. These will be accessible via <code>ctx.θ_obs</code>. If any parameter has a restricted domain, make sure the prior is truncated with <code>Distributions.truncated()</code> — Octofitter remaps the variable using Bijectors.jl to keep the sampler inside the valid region.</p><h2 id="Using-your-custom-observation"><a class="docs-heading-anchor" href="#Using-your-custom-observation">Using your custom observation</a><a id="Using-your-custom-observation-1"></a><a class="docs-heading-anchor-permalink" href="#Using-your-custom-observation" title="Permalink"></a></h2><pre><code class="language-julia hljs">sep_dat = Table(;
+    epoch = [50000., 50120, 50240, 50360, 50480, 50600],
+    sep   = [509.9, 503.9, 498.3, 493.4, 488.7, 484.9],
+    σ_sep = fill(5.0, 6),
+)
+
+sep_obs = SepObs(
+    sep_dat;
+    target = b,
+    ref = A,
+    name = &quot;MY_INSTRUMENT&quot;,
+    variables = @variables begin
+        jitter ~ LogUniform(0.01, 10.0)   # mas
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SepObs &quot;MY_INSTRUMENT&quot;  b vs A
+Table with 3 columns and 6 rows:
+     epoch    sep    σ_sep
+   ┌──────────────────────
+ 1 │ 50000.0  509.9  5.0
+ 2 │ 50120.0  503.9  5.0
+ 3 │ 50240.0  498.3  5.0
+ 4 │ 50360.0  493.4  5.0
+ 5 │ 50480.0  488.7  5.0
+ 6 │ 50600.0  484.9  5.0
+</code></pre><p>Note that references take the full grammar — <code>ref=Barycentre</code>, <code>ref=c</code>, <code>target=Photocentre(:H, (b, c))</code> are all legal, and are checked against the model&#39;s body list when the <code>System</code> is built.</p><p>Observations go in the <code>System</code>&#39;s <code>observations=</code> list; they are never attached to a body:</p><pre><code class="language-julia hljs">sys = System(
+    name = &quot;Tutoria&quot;,
+    bodies = [A, b],
+    observations = [sep_obs],
+    variables = @variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System Tutoria of dimension 9 and 6 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>The observation&#39;s own variables appear in the chain as <code>&lt;observation name&gt;_&lt;variable&gt;</code>, with the name normalized to a valid identifier — so <code>jitter</code> above is <code>MY_INSTRUMENT_jitter</code>:</p><pre><code class="language-julia hljs">using Random
+chain = octofit(model, verbosity=0, iterations=1000, adaptation=1000)
+chain[:MY_INSTRUMENT_jitter][1:3]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-dimensional AxisArray{Float64,1,...} with axes:
+    :row, Base.OneTo(3)
+And data, a 3-element Vector{Float64}:
+ 0.03804476749831568
+ 0.03245401890644939
+ 0.026661660552015465</code></pre><h2 id="Bonus:-the-generative-model"><a class="docs-heading-anchor" href="#Bonus:-the-generative-model">Bonus: the generative model</a><a id="Bonus:-the-generative-model-1"></a><a class="docs-heading-anchor-permalink" href="#Bonus:-the-generative-model" title="Permalink"></a></h2><p>The above is sufficient to start sampling from the posterior. Ideally, you will also add a function that does the reverse: generate observations from a set of parameters. This is what makes your type usable for posterior predictive checks, simulation-based calibration, and injection–recovery.</p><p>It is conventional to split it in two — a <code>simulate</code> method returning the forward model, and <code>generate_from_params</code> wrapping it in the noise model — so that plotting code and the likelihood can share the forward model:</p><pre><code class="language-julia hljs">function Octofitter.simulate(obs::SepObs, ctx::ObsContext)
+    T = Octofitter._system_number_type(ctx.θ_system)
+    target = Octofitter.ref(ctx, obs.target)
+    reference = Octofitter.ref(ctx, obs.ref)
+    sep_model = map(eachindex(obs.table.epoch)) do i
+        sol = solutionat(ctx, i)
+        hypot(raoff(sol, target, reference), decoff(sol, target, reference))
+    end
+    return (; sep_model, epochs=obs.table.epoch)
+end
+
+function Octofitter.generate_from_params(obs::SepObs, ctx::ObsContext; add_noise)
+    sim = Octofitter.simulate(obs, ctx)
+    jitter = hasproperty(ctx.θ_obs, :jitter) ? ctx.θ_obs.jitter : 0.0
+    sep = sim.sep_model
+    if add_noise
+        sep = sep .+ randn.() .* hypot.(obs.table.σ_sep, jitter)
+    end
+    # Return a NEW observation of the same type, with everything but the
+    # measured values carried over.
+    return SepObs(
+        Table(; epoch=obs.table.epoch, sep, σ_sep=obs.table.σ_sep);
+        target = obs.target,
+        ref = obs.ref,
+        obs.name,
+        variables = (obs.priors, obs.derived),
+    )
+end</code></pre><p>Now the whole simulation machinery works on your type:</p><pre><code class="language-julia hljs">Random.seed!(0)
+sim_sys = generate_from_params(sys; add_noise=true)
+sim_sys.observations[1].table.sep</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">6-element Vector{Float64}:
+ 1341.8914906819764
+ 1349.1320424739083
+ 1353.811658171658
+ 1376.6278203321338
+ 1383.6284353321473
+ 1392.283958170061</code></pre><h2 id="Bonus:-cross-validation"><a class="docs-heading-anchor" href="#Bonus:-cross-validation">Bonus: cross-validation</a><a id="Bonus:-cross-validation-1"></a><a class="docs-heading-anchor-permalink" href="#Bonus:-cross-validation" title="Permalink"></a></h2><p>Implement <code>likeobj_from_epoch_subset</code> and your type can be held out row by row, which is what <a href="../api/#Octofitter.pointwise_like"><code>Octofitter.pointwise_like</code></a> and PSIS-LOO need:</p><pre><code class="language-julia hljs">function Octofitter.likeobj_from_epoch_subset(obs::SepObs, inds)
+    return SepObs(
+        obs.table[inds, :, 1];
+        target = obs.target,
+        ref = obs.ref,
+        obs.name,
+        variables = (obs.priors, obs.derived),
+    )
+end
+
+likelihood_mat, epochs_out = Octofitter.pointwise_like(model, chain, verbosity=0)
+size(likelihood_mat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(1000, 6)</code></pre><p>If your likelihood genuinely does not decompose into independent per-row terms — as with <code>MarginalizedRVObs</code>, whose analytic marginalization couples every point in the instrument — do <strong>not</strong> implement this method. The default raises an informative error, and Octofitter&#39;s cross-validation machinery turns that into a message naming your observation and the analysis that wanted it.</p><h2 id="Bonus:-appearing-in-octoplot"><a class="docs-heading-anchor" href="#Bonus:-appearing-in-octoplot">Bonus: appearing in <code>octoplot</code></a><a id="Bonus:-appearing-in-octoplot-1"></a><a class="docs-heading-anchor-permalink" href="#Bonus:-appearing-in-octoplot" title="Permalink"></a></h2><p>Implement <code>Octofitter.plotchannels(obs)</code> and <code>Octofitter.residuals(obs, ctx)</code> to get time-series and residual panels for free. See <code>src/plotting-api.jl</code> for the <code>PlotChannel</code> type, and <code>RelAstromObs</code>/<code>RadialVelocityObs</code> for worked examples. Without them, <code>octoplot</code> still draws the model&#39;s orbit panels — it simply does not overlay your data.</p><h2 id="Where-to-look-next"><a class="docs-heading-anchor" href="#Where-to-look-next">Where to look next</a><a id="Where-to-look-next-1"></a><a class="docs-heading-anchor-permalink" href="#Where-to-look-next" title="Permalink"></a></h2><ul><li><code>src/model/obs.jl</code> — the interface, and the three &quot;membership tiers&quot; for observations of blended sources.</li><li><code>src/model/refs.jl</code> — the reference grammar: <code>BodyRefSpec</code>, <code>Barycentre</code>, <code>Photocentre</code>, <code>refspec</code>, <code>resolveref</code>.</li><li><code>src/likelihoods/sky-offset.jl</code> — <a href="../api/#Octofitter.sky_offset"><code>sky_offset</code></a> and <a href="../api/#Octofitter.sky_calibration"><code>sky_calibration</code></a>, the shared front-end for any likelihood that wants a sky-plane offset with a plate scale and a north angle. Use it rather than rolling your own rotate-and-scale block; the sign convention is stated there in full.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../derived/">« Derived Variables</a><a class="docs-footer-nextpage" href="../compat-orbitize/">Orbitize! Compatibility »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 5 September 2026 04:43">Saturday 5 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

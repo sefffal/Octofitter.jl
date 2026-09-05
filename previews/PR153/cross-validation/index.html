@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Cross Validation · Octofitter.jl</title><meta name="title" content="Cross Validation · Octofitter.jl"/><meta property="og:title" content="Cross Validation · Octofitter.jl"/><meta property="twitter:title" content="Cross Validation · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox" checked/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li class="is-active"><a class="tocitem" href>Cross Validation</a><ul class="internal"><li><a class="tocitem" href="#Calculating-Pointwise-Likelihoods"><span>Calculating Pointwise Likelihoods</span></a></li><li><a class="tocitem" href="#Pareto-Smoothed-Importance-Sampling"><span>Pareto-Smoothed Importance Sampling</span></a></li><li><a class="tocitem" href="#cv-holdout"><span>Holding out whole observations</span></a></li><li><a class="tocitem" href="#Epoch-level-folds"><span>Epoch-level folds</span></a></li><li><a class="tocitem" href="#Observations-that-cannot-be-subset"><span>Observations that cannot be subset</span></a></li><li><a class="tocitem" href="#See-also"><span>See also</span></a></li></ul></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Bayesian Workflows</a></li><li class="is-active"><a href>Cross Validation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Cross Validation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/cross-validation.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="cross-validation"><a class="docs-heading-anchor" href="#cross-validation">Cross-Validation</a><a id="cross-validation-1"></a><a class="docs-heading-anchor-permalink" href="#cross-validation" title="Permalink"></a></h1><p>Cross-validation asks how well a fitted model predicts data it has not seen. In Octofitter that question is answered by <em>subsetting observations</em>: every observation type that carries a data table knows how to produce a copy of itself restricted to a chosen set of rows, and the machinery below builds derived models out of those copies.</p><p>There are two granularities:</p><ul><li><strong>Pointwise</strong> — one held-out data row at a time. This is what leave-one-out cross-validation and PSIS-LOO need, and <a href="../api/#Octofitter.pointwise_like"><code>Octofitter.pointwise_like</code></a> computes it from a single chain with no refitting.</li><li><strong>Whole likelihoods, or groups of epochs</strong> — drop an entire instrument, keep only one, or feed the data in cumulatively. These produce new <code>System</code>s that you refit.</li></ul><p>We will use a model with two relative-astrometry instruments so that both granularities have something to say:</p><pre><code class="language-julia hljs">using Octofitter
+using Distributions
+using CairoMakie
+using Random
+
+astrom_dat_gpi = Table(;
+    epoch = [50000., 50120, 50240, 50360],
+    ra    = [-505.764, -502.57, -498.209, -492.678],
+    dec   = [-66.9298, -37.4722, -7.92755, 21.6356],
+    σ_ra  = fill(10.0, 4),
+    σ_dec = fill(10.0, 4),
+    cor   = fill(0.0, 4),
+)
+astrom_dat_sphere = Table(;
+    epoch = [50480., 50600, 50720, 50840],
+    ra    = [-485.977, -478.11, -469.08, -458.896],
+    dec   = [51.1472, 80.5359, 109.729, 138.651],
+    σ_ra  = fill(10.0, 4),
+    σ_dec = fill(10.0, 4),
+    cor   = fill(0.0, 4),
+)
+
+A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)  # M⊙
+    end
+)
+b = Body(
+    name=&quot;b&quot;,
+    about=A,
+    variables=@variables begin
+        a ~ truncated(Normal(10, 4), lower=0.1, upper=100)
+        e ~ Uniform(0.0, 0.5)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        epoch = 50420.0
+    end
+)
+
+gpi    = RelAstromObs(astrom_dat_gpi;    target=b, ref=A, name=&quot;GPI&quot;)
+sphere = RelAstromObs(astrom_dat_sphere; target=b, ref=A, name=&quot;SPHERE&quot;)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    bodies=[A, b],
+    observations=[gpi, sphere],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)
+Random.seed!(0)
+chain = octofit(model)
+display(chain)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] observing_geometry = false (auto): worst accumulated bias 0.00535σ, 18.7× inside the 0.1σ limit — over 300 prior draws (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] barycentric_lighttime = false (auto): changes no prediction at all — over 300 prior draws (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Preparing model
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number of free variables
+<span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
+<span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
+ℓπcallback(θ): 0.000010 seconds
+∇ℓπcallback(θ): 0.000024 seconds (1 allocation: 32 bytes)
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Verbosity toggle: unrecognized_stop_reason
+<span class="sgr33"><span class="sgr1">│ </span></span> Unrecognized stop reason: Too many steps (101) without any function evaluations (probably search has converged). Defaulting to ReturnCode.Default.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OptimizationBase ~/.julia/packages/OptimizationBase/l4ByK/src/utils.jl:170</span>
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-58.679069111202125, -49.42175445411231)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -52.5418157807182
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampling, beginning with adaptation phase...
+<span class="sgr32">Sampling   4%|█▍                             |  ETA: 0:00:02</span>
+<span class="sgr34">                                    iterations: 87</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.07</span>
+<span class="sgr34">                                       n_steps: 47</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.251131566071152</span>
+<span class="sgr34">                                   log_density: -51.418377623696884</span>
+<span class="sgr34">                            hamiltonian_energy: 53.52759069834278</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.7528578951461498</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 21.631788573556832</span>
+<span class="sgr34">                                    tree_depth: 5</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.4824552022499832</span>
+<span class="sgr34">                                 nom_step_size: 0.4824552022499832</span>
+<span class="sgr34">                                      is_adapt: true</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([5.1439e-8, 0.00168849, 0.0 ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  54%|████████████████▉              |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1087</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 79</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9906088170568876</span>
+<span class="sgr34">                                   log_density: -53.673560411733675</span>
+<span class="sgr34">                            hamiltonian_energy: 61.003444234167965</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.13069583032436327</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.155761752487102</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  62%|███████████████████▎           |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1238</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.995110964987675</span>
+<span class="sgr34">                                   log_density: -54.33616322365769</span>
+<span class="sgr34">                            hamiltonian_energy: 58.03682060522106</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.004227430598682247</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.039584678778503246</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  69%|█████████████████████▍         |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1377</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.8792493303214927</span>
+<span class="sgr34">                                   log_density: -55.35487284461442</span>
+<span class="sgr34">                            hamiltonian_energy: 58.64920543209867</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.052511062051230795</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.27996219147841117</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  76%|███████████████████████▌       |  ETA: 0:00:01</span>
+<span class="sgr34">                                    iterations: 1513</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 1.0</span>
+<span class="sgr34">                                   log_density: -54.26586560909085</span>
+<span class="sgr34">                            hamiltonian_energy: 63.305758231385845</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.3734031398869888</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: -0.9548613708116349</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  82%|█████████████████████████▌     |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1648</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9120813729367544</span>
+<span class="sgr34">                                   log_density: -53.23461110154334</span>
+<span class="sgr34">                            hamiltonian_energy: 55.39217192457964</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.1570095864608163</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.2714201811302246</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  89%|███████████████████████████▌   |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1771</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9935364501738007</span>
+<span class="sgr34">                                   log_density: -53.92195015657811</span>
+<span class="sgr34">                            hamiltonian_energy: 59.37465639057356</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.004508625732619009</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.017935755784897367</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling  95%|█████████████████████████████▍ |  ETA: 0:00:00</span>
+<span class="sgr34">                                    iterations: 1892</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.8349619712134233</span>
+<span class="sgr34">                                   log_density: -54.21566872585166</span>
+<span class="sgr34">                            hamiltonian_energy: 59.96850892335512</span>
+<span class="sgr34">                      hamiltonian_energy_error: 0.2049208982010029</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.3761193611155562</span>
+<span class="sgr34">                                    tree_depth: 7</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="sgr32">Sampling 100%|███████████████████████████████| Time: 0:00:02</span>
+<span class="sgr34">                                    iterations: 2000</span>
+<span class="sgr34">                   ratio_divergent_transitions: 0.0</span>
+<span class="sgr34">   ratio_divergent_transitions_during_adaption: 0.06</span>
+<span class="sgr34">                                       n_steps: 127</span>
+<span class="sgr34">                                     is_accept: true</span>
+<span class="sgr34">                               acceptance_rate: 0.9879044129541145</span>
+<span class="sgr34">                                   log_density: -53.18082896888229</span>
+<span class="sgr34">                            hamiltonian_energy: 58.78384533699819</span>
+<span class="sgr34">                      hamiltonian_energy_error: -0.03767808412052176</span>
+<span class="sgr34">                  max_hamiltonian_energy_error: 0.15336761486939565</span>
+<span class="sgr34">                                    tree_depth: 6</span>
+<span class="sgr34">                               numerical_error: false</span>
+<span class="sgr34">                                     step_size: 0.028312698772440668</span>
+<span class="sgr34">                                 nom_step_size: 0.028312698772440668</span>
+<span class="sgr34">                                      is_adapt: false</span>
+<span class="sgr34">                                   mass_matrix: DenseEuclideanMetric([1.00638e-5, 0.00867676, 0. ...])</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampling compete. Building chains.
+Sampling report for chain:
+mean_accept                 = 0.9466949777157413
+ratio_divergent_transitions = 0.0
+mean_tree_depth             = 6.675
+max_tree_depth_frac         = 0.0
+total_steps                 = 272112
+μs/step (approx.)           = 8.41</code></pre><h2 id="Calculating-Pointwise-Likelihoods"><a class="docs-heading-anchor" href="#Calculating-Pointwise-Likelihoods">Calculating Pointwise Likelihoods</a><a id="Calculating-Pointwise-Likelihoods-1"></a><a class="docs-heading-anchor-permalink" href="#Calculating-Pointwise-Likelihoods" title="Permalink"></a></h2><p>After you have defined a model and sampled from its posterior (e.g. via <code>octofit</code>), you can see how each datapoint is influencing the posterior:</p><pre><code class="language-julia hljs">@time likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+size(likelihood_mat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(1000, 8)</code></pre><p><code>likelihood_mat</code> is an <code>N_sample × N_data</code> matrix, and <code>epochs</code> labels each column with the epoch of the data row it came from.</p><p>The columns are ordered exactly as the data are defined in the model: observation by observation in the order you listed them in <code>System(...; observations=[...])</code>, and within each observation, row by row in table order.</p><pre><code class="language-julia hljs">epochs</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">8-element Vector{Float64}:
+ 50000.0
+ 50120.0
+ 50240.0
+ 50360.0
+ 50480.0
+ 50600.0
+ 50720.0
+ 50840.0</code></pre><div class="admonition is-info" id="Prior-shaped-terms-are-excluded-35704f7d524206af"><header class="admonition-header">Prior-shaped terms are excluded<a class="admonition-anchor" href="#Prior-shaped-terms-are-excluded-35704f7d524206af" title="Permalink"></a></header><div class="admonition-body"><p>A <code>~</code> line written inside a <code>@variables</code> block, an <code>LL += ...</code> line, and the <code>UnitLengthPrior</code> that sits behind every <code>UniformCircular</code> are all <em>prior</em> terms: they reshape the prior rather than adding data, so they do not participate in this machinery and get no column.</p><p><code>ObsPriorONeil2019</code> is <em>not</em> a prior-shaped term in this sense — it wraps a real likelihood — so it still contributes one column per row of the observation it wraps.</p></div></div><p>The consequence is that the columns sum to the model&#39;s log-likelihood <strong>minus</strong> those prior terms — which is the quantity used by PSIS-LOO:</p><pre><code class="language-julia hljs">θ = Octofitter.mcmcchain2result(model, chain, 1)
+lnlike = Octofitter.make_ln_like(model.system)
+(sum(likelihood_mat[1, :]), lnlike(model.system, θ))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(-52.4261030856462, -50.68987793448455)</code></pre><p>The difference is exactly the three <code>UnitLengthPrior</code> terms this model&#39;s three <code>UniformCircular</code> variables contribute.</p><p>Observations with no epochs get one column, labelled <code>NaN</code>. <a href="../api/#Octofitter.PhotometryObs"><code>PhotometryObs</code></a> carries data but has no epoch column; it contributes one column per photometry row, and those columns are labelled <code>NaN</code> in <code>epochs</code>.</p><h2 id="Pareto-Smoothed-Importance-Sampling"><a class="docs-heading-anchor" href="#Pareto-Smoothed-Importance-Sampling">Pareto-Smoothed Importance Sampling</a><a id="Pareto-Smoothed-Importance-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Pareto-Smoothed-Importance-Sampling" title="Permalink"></a></h2><p>Once you have <code>likelihood_mat</code> you can use the Julia package <a href="https://turinglang.org/ParetoSmooth.jl/dev/">ParetoSmooth.jl</a> to efficiently calculate a leave-one-out cross-validation score. This technique takes a single posterior chain and, using the pointwise likelihoods, estimates what the posterior would have been had each datapoint in turn been held out.</p><p>In broad terms, one might say that this test verifies that no individual datapoints are overly skewing the results.</p><p><code>psis_loo</code> comes from ParetoSmooth.jl, not from Octofitter; Octofitter supplies the matrix it consumes. Note the transpose — ParetoSmooth wants <code>N_data × N_sample</code>:</p><pre><code class="language-julia hljs">using ParetoSmooth
+result = psis_loo(
+    collect(likelihood_mat&#39;),
+    chain_index=ones(Int, size(chain, 1))
+)
+display(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+   6576.8 ms<span class="sgr32">  ✓ </span>ParetoSmooth
+  1 dependency successfully precompiled in 29 seconds. 73 already precompiled.
+  <span class="sgr33">67</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AbstractFFTs, AliasTables, Base64, CompilerSupportLibraries_jll, Crayons, DataAPI, DataStructures, DataValueInterfaces, Dates, Distributions, DocStringExtensions, FillArrays, FillArrays → FillArraysPDMatsExt, FillArrays → FillArraysSparseArraysExt, FillArrays → FillArraysStatisticsExt, Gamma, HypergeometricFunctions, InteractiveUtils, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsStatisticsExt, IrrationalConstants, IteratorInterfaceExtensions, JLLWrappers, JuliaSyntaxHighlighting, LaTeXStrings, LogExpFunctions, MCMCDiagnosticTools, MLJModelInterface, Markdown, Missings, OpenLibm_jll, OpenSpecFun_jll, OrderedCollections, PDMats, PDMats → StatsBaseExt, PrecompileTools, Preferences, PrettyTables, Printf, PtrArrays, QuadGK, REPL, Reexport, Requires, Rmath, Rmath_jll, ScientificTypesBase, Serialization, SortingAlgorithms, SparseArrays, SpecialFunctions, StatisticalTraits, Statistics, Statistics → SparseArraysExt, StatsAPI, StatsBase, StatsFuns, StringManipulation, StyledStrings, SuiteSparse, SuiteSparse_jll, TOML, TableTraits, Tables, UUIDs and Unicode). Restart julia to access the new versions. Otherwise, 7 dependents of these packages may trigger further precompilation to work with the unexpected versions.
+<span class="sgr32"><span class="sgr1">Precompiling</span></span> packages...
+   3056.3 ms<span class="sgr32">  ✓ </span>ParetoSmooth → ParetoSmoothMCMCChainsExt
+  1 dependency successfully precompiled in 7 seconds. 147 already precompiled.
+  <span class="sgr33">146</span> dependencies precompiled but <span class="sgr33">different versions are currently loaded</span> (AbstractFFTs, AbstractFFTs → AbstractFFTsChainRulesCoreExt, AbstractMCMC, AbstractTrees, Accessors, Accessors → AxisKeysExt, Accessors → IntervalSetsExt, Accessors → LinearAlgebraExt, Accessors → StaticArraysExt, Adapt, Adapt → AdaptSparseArraysExt, Adapt → AdaptStaticArraysExt, AliasTables, ArgCheck, AxisAlgorithms, AxisArrays, AxisKeys, AxisKeys → AbstractFFTsExt, AxisKeys → ChainRulesCoreExt, AxisKeys → OffsetArraysExt, AxisKeys → StatisticsExt, AxisKeys → StatsBaseExt, BangBang, BangBang → BangBangChainRulesCoreExt, BangBang → BangBangStaticArraysExt, BangBang → BangBangTablesExt, Base64, ChainRulesCore, ChainRulesCore → ChainRulesCoreSparseArraysExt, Compat, Compat → CompatLinearAlgebraExt, CompilerSupportLibraries_jll, CompositionsBase, CompositionsBase → CompositionsBaseInverseFunctionsExt, ConsoleProgressMonitor, ConstructionBase, ConstructionBase → ConstructionBaseIntervalSetsExt, ConstructionBase → ConstructionBaseLinearAlgebraExt, ConstructionBase → ConstructionBaseStaticArraysExt, Crayons, DataAPI, DataStructures, DataValueInterfaces, Dates, Distributed, Distributions, Distributions → DistributionsChainRulesCoreExt, DocStringExtensions, FFTA, FillArrays, FillArrays → FillArraysPDMatsExt, FillArrays → FillArraysSparseArraysExt, FillArrays → FillArraysStaticArraysExt, FillArrays → FillArraysStatisticsExt, Gamma, HypergeometricFunctions, InitialValues, IntegerMathUtils, InteractiveUtils, Interpolations, IntervalSets, IntervalSets → IntervalSetsRandomExt, IntervalSets → IntervalSetsRecipesBaseExt, IntervalSets → IntervalSetsStatisticsExt, InverseFunctions, InverseFunctions → InverseFunctionsDatesExt, IrrationalConstants, IterTools, IteratorInterfaceExtensions, JLLWrappers, JuliaSyntaxHighlighting, KernelDensity, LaTeXStrings, LeftChildRightSiblingTrees, LogDensityProblems, LogExpFunctions, LogExpFunctions → LogExpFunctionsChainRulesCoreExt, LogExpFunctions → LogExpFunctionsInverseFunctionsExt, Logging, LoggingExtras, MCMCChains, MCMCDiagnosticTools, MLJModelInterface, MacroTools, Markdown, Missings, Mmap, MuladdMacro, NamedDims, NamedDims → AbstractFFTsExt, NamedDims → ChainRulesCoreExt, NaturalSort, OffsetArrays, OffsetArrays → OffsetArraysAdaptExt, OpenLibm_jll, OpenSpecFun_jll, OrderedCollections, PDMats, PDMats → StatsBaseExt, ParetoSmooth, PrecompileTools, Preferences, PrettyTables, Primes, Printf, ProgressLogging, ProgressMeter, PtrArrays, QuadGK, REPL, RangeArrays, Ratios, RecipesBase, Reexport, Requires, Rmath, Rmath_jll, ScientificTypesBase, Serialization, SortingAlgorithms, SparseArrays, SpecialFunctions, SpecialFunctions → SpecialFunctionsChainRulesCoreExt, StaticArrays, StaticArrays → StaticArraysChainRulesCoreExt, StaticArrays → StaticArraysStatisticsExt, StaticArraysCore, StatisticalTraits, Statistics, Statistics → SparseArraysExt, StatsAPI, StatsBase, StatsFuns, StatsFuns → StatsFunsChainRulesCoreExt, StatsFuns → StatsFunsInverseFunctionsExt, StringManipulation, StyledStrings, SuiteSparse, SuiteSparse_jll, TOML, TableTraits, Tables, TerminalLoggers, UUIDs, Unicode and WoodburyMatrices). Restart julia to access the new versions. Otherwise, 2 dependents of these packages may trigger further precompilation to work with the unexpected versions.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>No source provided for samples; variables are assumed to be from a Markov Chain. If the samples are independent, specify this with keyword argument `source=:other`.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Some Pareto k values are slightly high (&gt;.5); some pointwise estimates may be slow to converge or have high variance.
+Results of PSIS-LOO-CV with 1000 Monte Carlo samples and 8 data points. Total Monte Carlo SE of 0.082.
+┌───────────┬────────┬──────────┬───────┬─────────┐
+│<span class="sgr1">           </span>│<span class="sgr1">  total </span>│<span class="sgr1"> se_total </span>│<span class="sgr1">  mean </span>│<span class="sgr1"> se_mean </span>│
+├───────────┼────────┼──────────┼───────┼─────────┤
+│<span class="sgr1">   cv_elpd </span>│ -54.22 │     0.54 │ -6.78 │    0.07 │
+│<span class="sgr1"> naive_lpd </span>│ -53.40 │     0.26 │ -6.67 │    0.03 │
+│<span class="sgr1">     p_eff </span>│   0.82 │     0.29 │  0.10 │    0.04 │
+└───────────┴────────┴──────────┴───────┴─────────┘</code></pre><p><code>chain_index</code> tells ParetoSmooth which chain each row of the matrix came from. <code>pointwise_like</code> flattens all chains into the sample dimension in order, so for a single chain <code>ones(Int, size(chain,1))</code> is right; for several chains use <code>repeat(1:size(chain,3), inner=size(chain,1))</code>.</p><p><code>result.pointwise</code> is a <code>KeyedArray</code> of per-row diagnostics, indexed by name:</p><pre><code class="language-julia hljs">result.pointwise(:pareto_k)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-dimensional <span class="sgr1">KeyedArray(NamedDimsArray(...))</span> with keys:
+↓   <span class="sgr34">data ∈ 8-element UnitRange{Int64}</span>
+And data, <span class="sgr1">8-element view(::Matrix{Float64}, :, 5)</span> with eltype Float64:
+ <span class="sgr34">(1)</span>  0.6599109962744167
+ <span class="sgr34">(2)</span>  0.49676833498004425
+ <span class="sgr34">(3)</span>  0.21704028026141617
+ <span class="sgr34">(4)</span>  0.20698769766763397
+ <span class="sgr34">(5)</span>  0.11669647400353667
+ <span class="sgr34">(6)</span>  0.181656934368175
+ <span class="sgr34">(7)</span>  0.3363634267626156
+ <span class="sgr34">(8)</span>  0.649750115812336</code></pre><p>The available statistics are <code>:cv_elpd</code> (the leave-one-out expected log predictive density of that row), <code>:naive_lpd</code> (the same quantity without holding the row out), <code>:p_eff</code> (the difference between them — how much of that row the fit has effectively absorbed), <code>:mcse</code>, and <code>:pareto_k</code>.</p><p>The diagnostic to look at is the Pareto shape parameter <span>$\hat{k}$</span> for each point. Values above about 0.7 mean the importance-sampling approximation is unreliable for that point — usually because it is highly influential — and that point deserves a genuine refit with the row held out (see <a href="#cv-holdout">Holding out whole observations</a> below).</p><pre><code class="language-julia hljs">using CairoMakie
+
+nrows = size(likelihood_mat, 2)
+fig = Figure(size=(650, 620))
+
+ax = Axis(
+    fig[1,1],
+    xlabel=&quot;data row&quot;,
+    ylabel=&quot;Pareto k̂&quot;,
+    xticks=1:nrows
+)
+scatter!(ax, collect(result.pointwise(:pareto_k)))
+hlines!(ax, [0.7], color=:red, linestyle=:dash)
+ylims!(ax, -0.1, 0.9)   # keep the threshold visible even when nothing is near it
+
+
+ax = Axis(
+    fig[2,1],
+    xlabel=&quot;data row&quot;,
+    ylabel=&quot;MCSE&quot;,
+    xticks=1:nrows
+)
+scatter!(ax, collect(result.pointwise(:mcse)))
+
+
+ax = Axis(
+    fig[3,1],
+    xlabel=&quot;data row&quot;,
+    ylabel=&quot;p_eff&quot;,
+    xticks=1:nrows
+)
+scatter!(ax, collect(result.pointwise(:p_eff)))
+
+
+fig</code></pre><img src="b2c23e76.png" alt="Example block output"/><p>Every <span>$\hat{k}$</span> here is comfortably below the line, which is what a healthy fit looks like: no single astrometric epoch is holding the posterior up on its own, so the LOO score above can be trusted as it stands.</p><h3 id="cv-influential"><a class="docs-heading-anchor" href="#cv-influential">Finding an influential point</a><a id="cv-influential-1"></a><a class="docs-heading-anchor-permalink" href="#cv-influential" title="Permalink"></a></h3><p>The diagnostic is only interesting when something <em>is</em> wrong, so here is the same model with one SPHERE measurement displaced by 60 mas — six times its quoted uncertainty — standing in for a mis-registered frame or a background object mistaken for the companion:</p><pre><code class="language-julia hljs">astrom_dat_sphere_bad = Table(;
+    epoch = astrom_dat_sphere.epoch,
+    ra    = astrom_dat_sphere.ra,
+    dec   = [51.1472, 80.5359 + 60.0, 109.729, 138.651],   # row 2 nudged
+    σ_ra  = fill(10.0, 4),
+    σ_dec = fill(10.0, 4),
+    cor   = fill(0.0, 4),
+)
+
+sys_bad = System(
+    name=&quot;Tutoria_outlier&quot;,
+    bodies=[A, b],
+    observations=[
+        gpi,
+        RelAstromObs(astrom_dat_sphere_bad; target=b, ref=A, name=&quot;SPHERE&quot;),
+    ],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model_bad = Octofitter.LogDensityModel(sys_bad)
+Random.seed!(0)
+chain_bad = octofit(model_bad, verbosity=0)
+mat_bad, epochs_bad = Octofitter.pointwise_like(model_bad, chain_bad)
+result_bad = psis_loo(collect(mat_bad&#39;), chain_index=ones(Int, size(chain_bad, 1)))
+display(result_bad)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria_outlier] observing_geometry = false (auto): worst accumulated bias 0.00535σ, 18.7× inside the 0.1σ limit — over 300 prior draws (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria_outlier] barycentric_lighttime = false (auto): changes no prediction at all — over 300 prior draws (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Preparing model
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number of free variables
+<span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
+<span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
+ℓπcallback(θ): 0.000007 seconds
+∇ℓπcallback(θ): 0.000106 seconds (1 allocation: 32 bytes)
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-74.7220737456844, -65.24095637205474)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -68.27401011214404
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Resolving chain
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Planning pointwise terms
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Calculating pointwise likelihoods
+<span class="sgr36"><span class="sgr1">│ </span></span>  samples = 1000
+<span class="sgr36"><span class="sgr1">└ </span></span>  points = 8
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>No source provided for samples; variables are assumed to be from a Markov Chain. If the samples are independent, specify this with keyword argument `source=:other`.
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Some Pareto k values are high (&gt;.7), indicating PSIS has failed to approximate the true distribution.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ ParetoSmooth ~/.julia/packages/ParetoSmooth/j8cDa/src/InternalHelpers.jl:50</span>
+Results of PSIS-LOO-CV with 1000 Monte Carlo samples and 8 data points. Total Monte Carlo SE of 0.27.
+┌───────────┬────────┬──────────┬───────┬─────────┐
+│<span class="sgr1">           </span>│<span class="sgr1">  total </span>│<span class="sgr1"> se_total </span>│<span class="sgr1">  mean </span>│<span class="sgr1"> se_mean </span>│
+├───────────┼────────┼──────────┼───────┼─────────┤
+│<span class="sgr1">   cv_elpd </span>│ -72.09 │    14.08 │ -9.01 │    1.76 │
+│<span class="sgr1"> naive_lpd </span>│ -65.69 │     9.96 │ -8.21 │    1.24 │
+│<span class="sgr1">     p_eff </span>│   6.41 │     4.15 │  0.80 │    0.52 │
+└───────────┴────────┴──────────┴───────┴─────────┘</code></pre><p>Two things changed. <code>p_eff</code> — the number of parameters the data are effectively buying — has jumped, because one row is now doing work no smooth orbit can absorb; and ParetoSmooth has warned that some <span>$\hat{k}$</span> crossed 0.7, which it does on its own whenever the importance-sampling approximation has failed somewhere.</p><p>To find <em>which</em> rows those are, threshold the vector — and, because the columns are in model order, map them back to the observation and epoch they came from with the same walk over the observations used above:</p><pre><code class="language-julia hljs">k̂ = collect(result_bad.pointwise(:pareto_k))
+flagged = findall(&gt;(0.7), k̂)
+
+data_obs_bad = filter(!Octofitter._isprior, sys_bad.observations)
+rowinst = reduce(vcat, [fill(Octofitter.likelihoodname(o), max(Octofitter._nrows(o), 1))
+                        for o in data_obs_bad])
+
+[(row=i, instrument=rowinst[i], epoch=epochs_bad[i], k̂=round(k̂[i], digits=2))
+ for i in flagged]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element Vector{@NamedTuple{row::Int64, instrument::String, epoch::Float64, k̂::Float64}}:
+ (row = 6, instrument = &quot;SPHERE&quot;, epoch = 50600.0, k̂ = 0.92)</code></pre><p>Now plot it. The top panel is the diagnostic — one <span>$\hat{k}$</span> per data row, with the 0.7 threshold drawn and the rows above it picked out and labelled by epoch. The bottom panel is a <a href="../api/#Octofitter.skypanel!"><code>skypanel!</code></a> of the same fit, zoomed to the data, so you can see <em>where</em> the flagged epochs sit relative to the posterior orbits:</p><pre><code class="language-julia hljs">fig = Figure(size=(700, 900))
+
+ax = Axis(fig[1,1], xlabel=&quot;data row&quot;, ylabel=&quot;Pareto k̂&quot;,
+          xticks=1:length(k̂), title=&quot;PSIS-LOO influence diagnostic&quot;)
+hlines!(ax, [0.7], color=:red, linestyle=:dash)
+hlines!(ax, [0.5], color=:gray, linestyle=:dot)
+fine = setdiff(eachindex(k̂), flagged)
+scatter!(ax, fine, k̂[fine], color=:black, markersize=12)
+scatter!(ax, flagged, k̂[flagged], color=:red, marker=:diamond, markersize=17)
+for i in flagged
+    right = i &gt; length(k̂) / 2      # keep the label inside the axis
+    text!(ax, i, k̂[i];
+        text = &quot;epoch $(round(Int, epochs_bad[i]))\n($(rowinst[i]))&quot;,
+        align = (right ? :right : :left, :center),
+        offset = (right ? -12 : 12, 0),
+        color = :red, fontsize = 12)
+end
+ylims!(ax, -0.1, 1.15)
+rowsize!(fig.layout, 1, Relative(0.3))
+
+# The same draws Octofitter&#39;s own figures use, restricted to the data region.
+series = PosteriorSeries(model_bad, chain_bad; N=50)
+skyax = skypanel!(fig[2,1], series; colorbar=false).sky
+ra_all  = vcat(astrom_dat_gpi.ra,  astrom_dat_sphere_bad.ra)
+dec_all = vcat(astrom_dat_gpi.dec, astrom_dat_sphere_bad.dec)
+scatter!(skyax, ra_all[flagged], dec_all[flagged],
+    marker=:circle, markersize=26, strokewidth=3, strokecolor=:red,
+    color=(:white, 0.0))
+# Equal spans, so the sky panel&#39;s DataAspect gives a square view.
+ra_lo, ra_hi = extrema(ra_all)
+dec_lo, dec_hi = extrema(dec_all)
+half = max(ra_hi - ra_lo, dec_hi - dec_lo) / 2 + 60
+cx, cy = (ra_lo + ra_hi) / 2, (dec_lo + dec_hi) / 2
+limits!(skyax, cx - half, cx + half, cy - half, cy + half)
+
+fig</code></pre><img src="bec0b06b.png" alt="Example block output"/><p>The corrupted epoch is the one the top panel picks out, and the ring around it in the bottom panel shows why: it sits off the track that every posterior draw wants to follow, so the posterior is being pulled by that single row and holding it out would move the answer.</p><p>It is not usually alone. The last epoch of the campaign crosses the line here too, and that is worth understanding, because nothing was done to it: the ends of a baseline are the rows an orbit fit leans on hardest, which is already visible in the <code>p_eff</code> panel of the healthy fit above — rows 1 and 8 are several times any interior row. Tilting the orbit to accommodate a displaced point therefore lands on whichever rows were carrying the fit anyway. Read <span>$\hat{k}$</span> as pointing at a <em>region</em> of the dataset that has become load-bearing, not as a list of bad measurements.</p><p>What to do about a flagged row is a judgement call, not a rule. PSIS-LOO is telling you that its approximation failed there, not that the measurement is wrong. Refit with the row genuinely held out (below) and compare; if the posterior moves materially, the measurement deserves a look before the orbit does.</p><h2 id="cv-holdout"><a class="docs-heading-anchor" href="#cv-holdout">Holding out whole observations</a><a id="cv-holdout-1"></a><a class="docs-heading-anchor-permalink" href="#cv-holdout" title="Permalink"></a></h2><p>The functions below return new <code>System</code> objects, which you then wrap in a <code>LogDensityModel</code> and refit. Every one of them keeps the model&#39;s prior-shaped terms intact — dropping the <code>UnitLengthPrior</code> behind a <code>UniformCircular</code> would change the <em>prior</em>, not the data set.</p><p>Leave one instrument out at a time:</p><pre><code class="language-julia hljs">kfold_systems = Octofitter.generate_kfold_systems(sys)
+map(s -&gt; Octofitter.likelihoodname.(s.observations), kfold_systems)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Tuple{String}}:
+ (&quot;SPHERE&quot;,)
+ (&quot;GPI&quot;,)</code></pre><p>Keep only one instrument at a time — useful for checking that two instruments agree before combining them:</p><pre><code class="language-julia hljs">per_like_systems = Octofitter.generate_systems_per_like(sys)
+map(s -&gt; Octofitter.likelihoodname.(s.observations), per_like_systems)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Tuple{String}}:
+ (&quot;GPI&quot;,)
+ (&quot;SPHERE&quot;,)</code></pre><p>Or select by an arbitrary predicate on the observation:</p><pre><code class="language-julia hljs">filtered = Octofitter.generate_system_filtered_like(
+    o -&gt; Octofitter.likelihoodname(o) == &quot;GPI&quot;, sys)
+Octofitter.likelihoodname.(filtered.observations)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(&quot;GPI&quot;,)</code></pre><p>Refit any of them the usual way:</p><pre><code class="language-julia hljs">gpi_only_model = Octofitter.LogDensityModel(filtered)
+gpi_only_chain = octofit(gpi_only_model, verbosity=0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>Preparing model
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number of free variables
+<span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
+<span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
+ℓπcallback(θ): 0.000011 seconds
+∇ℓπcallback(θ): 0.000016 seconds (1 allocation: 32 bytes)
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (-35.50275838863513, -23.90565781400875)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = -28.497414023723955</code></pre><h3 id="Scoring-the-held-out-dataset"><a class="docs-heading-anchor" href="#Scoring-the-held-out-dataset">Scoring the held-out dataset</a><a id="Scoring-the-held-out-dataset-1"></a><a class="docs-heading-anchor-permalink" href="#Scoring-the-held-out-dataset" title="Permalink"></a></h3><p>Refitting without a dataset is only half the exercise; the other half is asking how well the <em>reduced</em> posterior predicts the data you removed. Evaluate the full model&#39;s per-row likelihoods at the reduced model&#39;s draws, and keep the columns belonging to the held-out observation:</p><pre><code class="language-julia hljs"># Which columns belong to each observation, in the order described above:
+# observation by observation, prior-shaped terms skipped, and one column per
+# table row (or a single column for an observation that carries no table).
+data_obs = filter(!Octofitter._isprior, sys.observations)
+widths = [max(Octofitter._nrows(o), 1) for o in data_obs]
+bounds = cumsum(widths)
+starts = [1; bounds[1:end-1] .+ 1]
+heldout = [i for (o, s, e) in zip(data_obs, starts, bounds)
+             if Octofitter.likelihoodname(o) != &quot;GPI&quot; for i in s:e]
+
+# Per-row likelihoods of *all* the data, under the GPI-only posterior
+mat_all, _ = Octofitter.pointwise_like(model, gpi_only_chain)
+mat_heldout = mat_all[:, heldout]
+
+# Log pointwise predictive density of the held-out rows: log mean exp over draws,
+# summed over rows.
+using StatsBase: mean
+lppd = sum(log(mean(exp, col)) for col in eachcol(mat_heldout))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-30.854076011692843</code></pre><p><code>lppd</code> is on the same scale as a log Bayes factor per held-out dataset: larger is better, and comparing it across folds says which instruments the model is and is not able to predict from the others. It is not as directly interpretable as PSIS-LOO — there is no importance-sampling diagnostic to warn you when it is unreliable — but it needs no approximation either, because each fold is a genuine refit. Note that an instrument carrying its own <code>offset</code>/<code>jitter</code> variables is being predicted <em>with those nuisances free</em>, so a poor score there can mean a bad calibration rather than a bad orbit.</p><h2 id="Epoch-level-folds"><a class="docs-heading-anchor" href="#Epoch-level-folds">Epoch-level folds</a><a id="Epoch-level-folds-1"></a><a class="docs-heading-anchor-permalink" href="#Epoch-level-folds" title="Permalink"></a></h2><p>Data rows are numbered globally — observation by observation, then table row by table row — so row 5 means &quot;the fifth data row in the model&quot; regardless of which observation it lives in.</p><p>One system per data row, each containing only that row:</p><pre><code class="language-julia hljs">per_epoch_systems, per_epoch_epochs = Octofitter.generate_system_per_epoch(sys)
+(length(per_epoch_systems), per_epoch_epochs)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(8, [50000.0, 50120.0, 50240.0, 50360.0, 50480.0, 50600.0, 50720.0, 50840.0])</code></pre><p>One system per data row, each containing rows 1 through <em>i</em> — for watching a posterior tighten as data accumulate:</p><pre><code class="language-julia hljs">cumulative_systems, cumulative_epochs = Octofitter.generate_cumulative_system_per_epoch(sys)
+length.(cumulative_epochs)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">8-element Vector{Int64}:
+ 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8</code></pre><p>And the general form, which takes the row groups you want:</p><pre><code class="language-julia hljs">grouped, grouped_epochs = Octofitter.generate_systems_with_epoch_groups(
+    sys,
+    [[1, 2], [3, 4, 5], [6, 7, 8]],
+    g -&gt; &quot;_group_$g&quot;,
+)
+grouped_epochs</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Vector{Float64}}:
+ [50000.0, 50120.0]
+ [50240.0, 50360.0, 50480.0]
+ [50600.0, 50720.0, 50840.0]</code></pre><h2 id="Observations-that-cannot-be-subset"><a class="docs-heading-anchor" href="#Observations-that-cannot-be-subset">Observations that cannot be subset</a><a id="Observations-that-cannot-be-subset-1"></a><a class="docs-heading-anchor-permalink" href="#Observations-that-cannot-be-subset" title="Permalink"></a></h2><p>Not every likelihood decomposes into independent per-row terms. The canonical case is <code>MarginalizedRVObs</code> from OctofitterRadialVelocity: it integrates the instrument&#39;s zero point out analytically, which couples every point in that instrument, so &quot;the likelihood of row 7&quot; does not exist as a quantity. Asking for it produces an error naming the offending observation and its type, rather than a bare failure from inside the machinery:</p><pre><code class="language-julia hljs">Octofitter.pointwise_like(model_with_marginalized_rv, chain)
+# ERROR: ArgumentError: Cannot subset the data of observation &quot;HIRES&quot; (a MarginalizedRVObs), …</code></pre><p>Use a plain <code>RadialVelocityObs</code> with an explicit <code>offset</code> variable if you need to cross-validate radial velocities.</p><p>Holding out rows from a <code>RadialVelocityObs</code> that carries a Gaussian process works with <strong>both</strong> GP backends — <strong>Celerite</strong> and <strong>AbstractGPs</strong> — and does all the behind the scenes work to do cross-validation correctly in the presence of a Gaussian process: the process is conditioned on the retained rows only, and each held-out point is then scored against the predictive mean and variance there, with that point&#39;s own measurement error and jitter added.</p><h2 id="See-also"><a class="docs-heading-anchor" href="#See-also">See also</a><a id="See-also-1"></a><a class="docs-heading-anchor-permalink" href="#See-also" title="Permalink"></a></h2><ul><li><a href="../post-pred/#Posterior-Predictive-Checks">Posterior Predictive Checks</a> — the qualitative counterpart: does the fitted model reproduce the data at all?</li><li><a href="../rv-multi-planet/#bayesian-evidence">Bayesian evidence</a> — comparing whole models rather than individual points.</li><li><a href="../api/#Octofitter.prior_only_model"><code>prior_only_model</code></a> — a copy of the model with its data likelihoods replaced by no-ops.</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../post-pred/">« Posterior Predictive Checks</a><a class="docs-footer-nextpage" href="../sbc/">Simulation Based Calibration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 5 September 2026 04:43">Saturday 5 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

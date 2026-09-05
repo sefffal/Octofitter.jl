@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Distributed Sampling · Octofitter.jl</title><meta name="title" content="Distributed Sampling · Octofitter.jl"/><meta property="og:title" content="Distributed Sampling · Octofitter.jl"/><meta property="twitter:title" content="Distributed Sampling · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li class="is-active"><a class="tocitem" href>Distributed Sampling</a><ul class="internal"><li><a class="tocitem" href="#Multiple-cores-on-your-own-computer"><span>Multiple cores on your own computer</span></a></li><li><a class="tocitem" href="#kepsolve-threads"><span>Threading the trajectory solve</span></a></li><li><a class="tocitem" href="#The-model-script"><span>The model script</span></a></li><li><a class="tocitem" href="#The-launcher-script"><span>The launcher script</span></a></li><li><a class="tocitem" href="#Troubleshooting"><span>Troubleshooting</span></a></li><li><a class="tocitem" href="#Examine-Results"><span>Examine Results</span></a></li></ul></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Documentation</a></li><li class="is-active"><a href>Distributed Sampling</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Distributed Sampling</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/parallel-sampling.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Distributed-Sampling"><a class="docs-heading-anchor" href="#Distributed-Sampling">Distributed Sampling</a><a id="Distributed-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Distributed-Sampling" title="Permalink"></a></h1><p>Octofitter&#39;s default sampler (Hamiltonian Monte Carlo) is not easily parallelizable (only a single chain sampled at a time); however, it performs excellently on a single core. Give it a try before assuming you need to sample with multiple cores or nodes. If you have a lot of data (e.g. RV models with 1000 epochs) you can start julia with multiple threads, and <code>octofit</code> will multi-thread the kepler solve giving a moderate speedup. </p><p>This guide shows how you can sample from Octofitter models with the Pigeons parallel tempered sampler using many cores, or a cluster.</p><h2 id="Multiple-cores-on-your-own-computer"><a class="docs-heading-anchor" href="#Multiple-cores-on-your-own-computer">Multiple cores on your own computer</a><a id="Multiple-cores-on-your-own-computer-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-cores-on-your-own-computer" title="Permalink"></a></h2><p>The easiest way to use every core of your own machine is the <code>cores</code> keyword of <a href="../api/#Octofitter.octofit_pigeons"><code>octofit_pigeons</code></a>:</p><pre><code class="language-julia hljs">using Octofitter, Pigeons
+model = Octofitter.LogDensityModel(sys)
+chain, pt = octofit_pigeons(model; n_rounds=12, cores=8)</code></pre><p>This runs the sampler in <code>cores</code> separate worker processes, which for expensive models (many RV epochs, absolute astrometry, images) is often faster than sampling with threads Each run spends a minute or two launching the workers and compiling the model in them before sampling begins, so it pays off for long fits rather than quick tests — <code>octofit_pigeons</code> prints a hint when one path or the other looks clearly better. Progress appears in your session as usual, results checkpoint each round under <code>results/</code> in the current directory, and the same <code>(chain, pt)</code> comes back.</p><p>For models with thousands of epochs, <code>threads_per_process=2</code> (or 4) splits the same core budget into fewer workers that each also thread their Kepler / trajectory solve: <code>cores=16, threads_per_process=2</code> runs 8 workers × 2 threads. Chains within a worker sample one after another, so only reach for this once there is already one worker per chain (e.g. <code>cores=32, threads_per_process=2</code> with the default 16 chains).</p><p>Alternatively, start Julia with multiple threads (<code>julia --threads=auto</code>) and <code>octofit_pigeons</code> will sample one chain per thread with no startup cost — the better choice for quick runs and cheap models.</p><div class="admonition is-info" id="cores-inside-a-cluster-job-1581e7133921aef"><header class="admonition-header">cores= inside a cluster job<a class="admonition-anchor" href="#cores-inside-a-cluster-job-1581e7133921aef" title="Permalink"></a></header><div class="admonition-body"><p><code>cores=</code> targets your own machine. It also works inside a single-node cluster allocation (<code>salloc</code> / <code>sbatch</code>), with one caveat: the bundled MPI may try to launch the workers through the cluster&#39;s own job launcher and fail silently. Set <code>ENV[&quot;HYDRA_BOOTSTRAP&quot;] = &quot;fork&quot;</code> (or <code>export HYDRA_BOOTSTRAP=fork</code>) first. For sampling <em>across</em> nodes, use the MPI launcher below instead.</p></div></div><p>If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following the rest of this guide.</p><h2 id="kepsolve-threads"><a class="docs-heading-anchor" href="#kepsolve-threads">Threading the trajectory solve</a><a id="kepsolve-threads-1"></a><a class="docs-heading-anchor-permalink" href="#kepsolve-threads" title="Permalink"></a></h2><p>Independently of how many chains you run, the <em>likelihood itself</em> can use more than one thread. PlanetOrbits&#39; <code>orbitsolve!</code> takes a <code>threads=</code> keyword that splits the epoch union into contiguous chunks solved on concurrent tasks; the chunk boundaries are aligned to the SIMD block, so the chunked result is bit-for-bit identical to the serial one, values and ForwardDiff gradients both.</p><p>Octofitter&#39;s generated likelihood passes that keyword through, driven by a single flag:</p><pre><code class="language-julia hljs">Octofitter._kepsolve_use_threads[] = true</code></pre><p>Most of the time you never touch it, because whoever starts the sampler already knows whether the threads are spoken for:</p><ul><li><a href="../api/#Octofitter.octofit"><code>octofit</code></a> (HMC, one chain) turns it <strong>on</strong> after initialization when Julia has more than one thread and the model has at least <code>2 * PlanetOrbits.MIN_EPOCHS_PER_TASK</code> (currently 1024) epochs.</li><li><a href="../api/#Octofitter.octofit_pigeons"><code>octofit_pigeons</code></a> sampling with threads turns it <strong>off</strong> — the chains are already one per thread.</li><li><code>octofit_pigeons(...; cores=N, threads_per_process=T)</code> with <code>T &gt; 1</code> turns it <strong>on</strong> inside each worker process.</li></ul><p>You have to set it yourself in only one situation: when you launch the workers yourself, as in the MPI launcher below. It is safe to set unconditionally — <code>orbitsolve!</code> silently runs serial when there are fewer than 512 epochs per task, and always for the <code>AHL21</code> N-body propagator, which has to march through time in order. So it does nothing for N-body models, and nothing for small ones.</p><div class="admonition is-info" id="Note-792601ea7cad550"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-792601ea7cad550" title="Permalink"></a></header><div class="admonition-body"><p><code>_kepsolve_use_threads</code> is spelled with a leading underscore because it is internal: it is a switch on how the likelihood is evaluated, not part of the modelling API, and it may move. Setting it never changes the numbers you get — only how many cores compute them.</p></div></div><p>Save this as <code>threads_setup.jl</code> next to your launcher; the MPI launcher below hands it to every rank:</p><pre><code class="language-julia hljs"># threads_setup.jl — included in each MPI rank before the model is deserialized.
+using Octofitter
+
+# Thread the Kepler / trajectory solve inside the likelihood. A no-op below
+# PlanetOrbits.MIN_EPOCHS_PER_TASK epochs per task and for the AHL21 N-body
+# propagator, and bit-identical to the serial solve when it does engage — so
+# there is nothing to guard here beyond &quot;did we actually get threads?&quot;.
+Octofitter._kepsolve_use_threads[] = Threads.nthreads() &gt; 1</code></pre><h2 id="The-model-script"><a class="docs-heading-anchor" href="#The-model-script">The model script</a><a id="The-model-script-1"></a><a class="docs-heading-anchor-permalink" href="#The-model-script" title="Permalink"></a></h2><p>We split this into two files: one that builds the model, and one that submits the batch job. The sampler then runs in the background, and you can periodically load the results in from the checkpoint file to examine them after each round of sampling.</p><p>Here is the model script (save it as <code>distributed-model.jl</code>):</p><pre><code class="language-julia hljs">using Octofitter
+using PlanetOrbits
+using CairoMakie
+using PairPlots
+using DataFrames
+using Distributions
+
+# Specify your data as usual
+# In practice, this model is way to fast to benefit from MPI -- but we show it as a quick example.
+astrom_dat = Table(
+    epoch = [50000.0, 50120.0, 50240.0, 50360.0, 50480.0, 50600.0, 50720.0, 50840.0],
+    ra    = [-505.7637580573554, -502.570356287689, -498.2089148883798, -492.67768482682357,
+             -485.9770335870402, -478.1095526888573, -469.0801731788123, -458.89628893460525],
+    dec   = [-66.92982418533026, -37.47217527025044, -7.927548139010479, 21.63557115669823,
+             51.147204404903704, 80.53589069730698, 109.72870493064629, 138.65128697876773],
+    σ_ra  = fill(10.0, 8),
+    σ_dec = fill(10.0, 8),
+    cor   = zeros(8),
+)
+
+# build your model as usual
+A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ truncated(Normal(1.2, 0.1), lower=0.1)   # [M⊙]
+    end
+)
+
+b = Body(
+    name=&quot;b&quot;,
+    about=A,
+    variables=@variables begin
+        mass = 0.0
+        a ~ Uniform(0, 100)     # AU
+        e ~ Uniform(0.0, 0.99)
+        i ~ Sine()              # radians
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        epoch = 50000.0         # use an MJD epoch near your data here!!
+    end
+)
+
+astrom_obs = RelAstromObs(astrom_dat; target=b, ref=A, name=&quot;astrom&quot;)
+
+sys = System(   # replace Tutoria with the name of your planetary system
+    name=&quot;Tutoria&quot;,
+    bodies=[A, b],
+    observations=[astrom_obs],
+    variables=@variables begin
+        plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+    end
+)
+
+model = Octofitter.LogDensityModel(sys)</code></pre><h2 id="The-launcher-script"><a class="docs-heading-anchor" href="#The-launcher-script">The launcher script</a><a id="The-launcher-script-1"></a><a class="docs-heading-anchor-permalink" href="#The-launcher-script" title="Permalink"></a></h2><p>Use this script to launch your MPI job. Save it as <code>submit.jl</code> next to <code>distributed-model.jl</code> and <code>threads_setup.jl</code>.</p><p>Run <code>Pigeons.setup_mpi(...)</code> once on the login node first (see <a href="#Troubleshooting">Troubleshooting</a> below): it is what tells Pigeons which scheduler you are on, which environment modules to load, and which lines to add to the submission script. Those settings are saved permanently under <code>~/.pigeons</code>, and are <em>not</em> arguments of <code>MPIProcesses</code>.</p><pre><code class="language-julia hljs">using Octofitter
+using OctofitterRadialVelocity   # only if your model uses RV data
+using Pigeons
+
+include(&quot;distributed-model.jl&quot;)  # defines `model`
+
+# --- job knobs ---------------------------------------------------------------
+const NROUNDS   = 12          # doubling schedule: the last round is 2^NROUNDS scans
+const NCHAINS   = 32          # parallel tempering chains
+const NMPI      = NCHAINS     # one MPI rank per chain
+const NTHREADS  = 1           # Julia threads per rank (--cpus-per-task)
+const WALLTIME  = &quot;24:00:00&quot;
+const MEMPERCPU = &quot;8gb&quot;       # --mem-per-cpu
+
+output_dir = @__DIR__
+
+# The explorer Octofitter uses by default. Swap in another Pigeons explorer
+# (AutoMALA, AAPS, ...) or your own here.
+explorer = Pigeons.SliceSampler()
+
+# Mirrors octofit_pigeons, but with multithreaded=false so that MPI parallelizes
+# across PT chains (one chain per rank =&gt; its own Julia heap and its own GC) and
+# the per-process threads are left to the Kepler solver — see threads_setup.jl.
+inputs = Pigeons.Inputs(;
+    target = model,
+    record = [Pigeons.traces; Pigeons.round_trip; Pigeons.record_default(); Pigeons.index_process],
+    multithreaded = false,
+    show_report = true,
+    n_rounds = NROUNDS,
+    n_chains = NCHAINS,
+    n_chains_variational = 0,
+    variational = nothing,
+    checkpoint = true,
+    explorer = explorer,
+)
+
+@info &quot;Submitting Pigeons MPI job&quot; NROUNDS NCHAINS NMPI NTHREADS WALLTIME MEMPERCPU
+
+# With &gt;1 thread per rank, tell OpenMPI&#39;s mpiexec NOT to bind each rank to a
+# single core (its default), or all of a rank&#39;s threads would be pinned to one
+# core. `--bind-to none` lets a rank&#39;s threads roam over its --cpus-per-task
+# cores. Override with MPIEXEC_BIND if needed.
+bind_mode = get(ENV, &quot;MPIEXEC_BIND&quot;, NTHREADS &gt; 1 ? &quot;none&quot; : &quot;&quot;)
+mpiexec_args = isempty(bind_mode) ? `` : `--bind-to $bind_mode`
+
+result = pigeons(
+    inputs,
+    MPIProcesses(
+        n_mpi_processes = NMPI,
+        n_threads = NTHREADS,
+        walltime = WALLTIME,
+        memory = MEMPERCPU,
+        mpiexec_args = mpiexec_args,
+        # Children need Octofitter loaded to deserialize the model; any file
+        # defining types the model refers to (e.g. a custom explorer) must be
+        # included so those definitions exist BEFORE the PT arguments are
+        # deserialized; threads_setup.jl flips on threaded Kepler solving
+        # inside each rank.
+        dependencies = [
+            Octofitter,
+            OctofitterRadialVelocity,
+            abspath(joinpath(@__DIR__, &quot;threads_setup.jl&quot;)),
+        ],
+    ),
+)
+
+open(joinpath(output_dir, &quot;exec_folder.txt&quot;), &quot;w&quot;) do io
+    println(io, result.exec_folder)
+end
+@info &quot;Submitted MPI job&quot; exec_folder=result.exec_folder
+println(&quot;EXEC_FOLDER=&quot;, result.exec_folder)
+println(&quot;After the job finishes, load with:&quot;)
+println(&quot;  julia --project=. load-results.jl &quot;, result.exec_folder)</code></pre><p>A few things worth calling out about this pattern:</p><ul><li><strong>No lazy target.</strong> Earlier versions of this page wrapped the model in a <code>Pigeons.LazyTarget</code> so each rank rebuilt it. That is no longer needed — pass <code>target = model</code> directly and Pigeons serializes it to the execution folder, as long as every package that defines a piece of the model is listed in <code>dependencies</code> (<code>Octofitter</code> plus whichever <code>Octofitter*</code> package supplies your observation types). This is exactly what <code>octofit_pigeons(...; cores=N)</code> does locally.</li><li><strong><code>multithreaded = false</code> is deliberate.</strong> MPI is doing the parallelism across chains; leaving Pigeons&#39; own threading on would have the ranks fight for the same cores. Threads within a rank go to the trajectory solve instead — see <a href="#kepsolve-threads">Threading the trajectory solve</a>.</li><li><strong><code>checkpoint = true</code> is how results come back.</strong> The job writes a checkpoint every round under <code>results/</code>; nothing is returned in memory.</li><li><code>dependencies</code> entries that are <code>Module</code>s become <code>using</code> lines and entries that are paths become <code>include</code> calls, emitted in order at the top of each rank&#39;s launch script, before the model is deserialized.</li><li><strong>The knobs map straight onto the scheduler.</strong> Under SLURM, <code>MPIProcesses</code> emits <code>-t WALLTIME</code>, <code>--ntasks=NMPI</code>, <code>--cpus-per-task=NTHREADS</code> and <code>--mem-per-cpu=MEMPERCPU</code>, so the job asks for <code>NMPI * NTHREADS</code> cores in total. Don&#39;t repeat any of those four in <code>add_to_submission</code> — they would be duplicated directives. Keep <code>NTHREADS = 1</code> unless your model has thousands of epochs; then 2 or 4 threads per rank buys a faster likelihood, and <code>threads_setup.jl</code> is what makes the extra threads useful.</li></ul><p>While the job runs, <code>Pigeons.queue_status(result)</code> and <code>Pigeons.watch(result)</code> report the scheduler&#39;s view and the job&#39;s stdout/stderr.</p><div class="admonition is-info" id="Info-c9cd0f90e3f98b5"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-c9cd0f90e3f98b5" title="Permalink"></a></header><div class="admonition-body"><p>Don&#39;t submit this script to your cluster. Run it on a login node and it will submit the job for you.</p></div></div><h2 id="Troubleshooting"><a class="docs-heading-anchor" href="#Troubleshooting">Troubleshooting</a><a id="Troubleshooting-1"></a><a class="docs-heading-anchor-permalink" href="#Troubleshooting" title="Permalink"></a></h2><p><code>Pigeons.setup_mpi</code> has to be run once, on the login node, before any <code>MPIProcesses</code> submission — otherwise the submission errors with <code>call setup_mpi(..) first</code>. This is also where the scheduler directives (<code>add_to_submission</code>) and <code>environment_modules</code> live: they are <em>not</em> keywords of <code>MPIProcesses</code> or of <code>pigeons</code>.</p><p>If you run into library issues with MPI and/or HDF5, you may need to tell Julia to use the system provided versions. </p><p>Here is an example that works on AllianceCanada clusters, and may be adaptable to other slurm-based systems:</p><pre><code class="language-julia hljs">using Pigeons
+using Preferences, HDF5
+
+set_preferences!(
+    HDF5,
+    &quot;libhdf5&quot; =&gt; ENV[&quot;EBROOTHDF5&quot;]*&quot;/lib/libhdf5_hl.so&quot;,
+    &quot;libhdf5_hl&quot; =&gt; ENV[&quot;EBROOTHDF5&quot;]*&quot;/lib/libhdf5_hl.so&quot;,
+    force = true
+)
+
+Pigeons.setup_mpi(
+    submission_system = :slurm,
+    environment_modules = [&quot;StdEnv/2023&quot;, &quot;intel&quot;, &quot;openmpi&quot;, &quot;julia/1.10&quot;, &quot;hdf5&quot;],
+    library_name = ENV[&quot;EBROOTOPENMPI&quot;]*&quot;/lib/libmpi&quot;,
+    # Walltime, ntasks, cpus-per-task and mem-per-cpu are emitted by
+    # MPIProcesses from WALLTIME / NMPI / NTHREADS / MEMPERCPU — put only the
+    # directives it does not cover here.
+    add_to_submission = [
+        &quot;#SBATCH --account=def-account-name&quot;,
+    ]
+)
+println(&quot;Setup MPIProcesses&quot;)</code></pre><h2 id="Examine-Results"><a class="docs-heading-anchor" href="#Examine-Results">Examine Results</a><a id="Examine-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Examine-Results" title="Permalink"></a></h2><p>After one or more sampling rounds have completed, you can load the results so far for analysis. Save this as <code>load-results.jl</code>:</p><pre><code class="language-julia hljs">using Octofitter
+using OctofitterRadialVelocity   # the same packages the model needs
+using Pigeons
+using CairoMakie, PairPlots
+
+# The launcher printed this and wrote it to exec_folder.txt; it is a path of the
+# form results/all/&lt;something&gt;.
+exec_folder = isempty(ARGS) ? strip(read(&quot;exec_folder.txt&quot;, String)) : ARGS[1]
+
+pt = PT(exec_folder)          # loads the latest completed round&#39;s checkpoint
+model = pt.inputs.target
+results = Chains(model, pt)
+
+octocorner(model, results, small=true)</code></pre><p>If you are still in the session that ran the sampler (e.g. the <code>cores=</code> path above), you already have <code>pt</code> and only need the last two lines.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../samplers/">« Sampler</a><a class="docs-footer-nextpage" href="../priors/">Priors »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 5 September 2026 04:43">Saturday 5 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
