@@ -58,12 +58,15 @@ Some models also want `flux` or `flux_<band>`.
 
 
 For orbital elements, you must supply exactly one of these options:
+
+
 | group | alternatives |
 |---|---|
 | size | `a` [AU] or `P` [**days**] |
 | shape | (`e`, `ω`) or (`secosω`, `sesinω`) or (`ecosω`, `esinω`) |
 | phase | `tp` or `M0` + `epoch` or `θ` + `epoch` |
 | orientation | `i`, `Ω` |
+
 
 Here we used `θ` (the planet's position angle on the sky at `epoch`) to fix the phase,
 which is usually much better constrained by relative data than the epoch of periastron.
