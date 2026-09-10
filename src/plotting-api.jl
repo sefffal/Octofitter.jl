@@ -1534,18 +1534,34 @@ generic panel [`octoplot`](@ref) already draws. Requires a Makie backend.
 
 Draw several draws side by side with [`gaiastarplot!`](@ref), which takes a
 grid cell instead of making its own figure.
+
+The lower corner is annotated with the source's annual
+[`parallax_ellipse`](@ref) — faint, and deliberately not to scale, the way a
+radio map carries its beam ellipse — so a draw's reflex loop can be read
+against the direction parallax pushes the source. Pass
+`parallax_ellipse=false` to drop it; see [`gaiastarplot!`](@ref) for where the
+sky direction comes from.
 """
 function gaiastarplot end
 gaiastarplot(args...; kwargs...) = _require_makie("gaiastarplot")
 export gaiastarplot
 
 """
-    gaiastarplot!(gridposition_or_axis, model, chain, sample_idx=MAP; kwargs...)
+    gaiastarplot!(gridposition_or_axis, model, chain, sample_idx=MAP;
+                  parallax_ellipse=true, ellipse_scale=0.16, kwargs...)
 
 [`gaiastarplot`](@ref) into a cell of a figure you already have —
 `gaiastarplot!(fig[i, j], model, chain, idx)` — or into an axis you made
 yourself. Returns the `Axis`, so a grid of draws can be linked and have its
 interior decorations hidden in the usual Makie way. Requires a Makie backend.
+
+`parallax_ellipse=true` (the default) annotates the lower corner with the
+source's annual [`parallax_ellipse`](@ref), at `ellipse_scale` × the panel —
+a fixed size, so only its shape and orientation mean anything. The sky
+direction it needs is taken from the system's `ra`/`dec` frame variables, or
+from `ra=`/`dec=` in degrees, or from `gaia_id=`; a model that supplies none
+of them simply gets no ellipse rather than an error. No ephemeris is
+involved, so this pulls in no data dependency.
 """
 function gaiastarplot! end
 gaiastarplot!(args...; kwargs...) = _require_makie("gaiastarplot!")

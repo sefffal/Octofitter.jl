@@ -469,7 +469,14 @@ octoplot(Octofitter.PosteriorSeries(model, chain; ii=[idx]))
 
 # `gaiastarplot` is the sky-plane version of the same draw: the reflex track with each
 # transit's residual re-projected along its own scan angle.
-Octofitter.gaiastarplot(model, chain, idx)
+#
+# `gaia_id=` is what puts the annual parallax ellipse in the corner (faint, not to
+# scale, correct shape and orientation — read the reflex loop against it). The
+# ellipse needs the source's sky direction, and this model has no absolute frame to
+# take it from: the abscissae measure offsets, so `plx` is the only frame quantity
+# sampled. Without `gaia_id=` (or `ra=`/`dec=` in degrees) the panel simply draws
+# without it.
+Octofitter.gaiastarplot(model, chain, idx; gaia_id=GAIA4_SOURCE_ID)
 ```
 
 ```julia
