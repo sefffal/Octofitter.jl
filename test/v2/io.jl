@@ -490,3 +490,36 @@ else
     @info "Skipping BHAC15 tests: the `BHAC15_GAIA` DataDep is not cached (it is not " *
           "downloaded on demand here — see the io agent's report)."
 end
+
+# The GOST export URL needs the JSESSIONID cookie the service set, and there is
+# no public accessor for a jar's contents — so `_gost_session_id` reads
+# `CookieJar.entries`. The bucketing of that dict is *not* stable across HTTP.jl
+# majors: HTTP 1 keys it by the request host, HTTP 2 by the registrable domain.
+# The previous code named the HTTP 1 bucket outright and threw a `KeyError`
+# under HTTP 2, taking `GOST_forecast` — and therefore
+# `gaia_dr4_transit_template` — with it.
+#
+# Nothing in CI contacts GOST, so a live call cannot be the regression test.
+# Building the jars by hand covers the part that actually broke, and does it
+# offline.
+@testset "GOST session cookie survives either HTTP.jl bucketing" begin
+    HTTP = Octofitter.HTTP
+    key = Octofitter._GOST_COOKIE_KEY
+    cookie = HTTP.Cookies.Cookie("JSESSIONID", "D86BA481D8A264483BAAE26C61046637")
+
+    # HTTP 1 buckets by request host; HTTP 2 by registrable domain. Whichever
+    # major is resolved, one of these is the shape it produces — and the lookup
+    # has to handle both, since the compat range admits both.
+    for host in ("gaia.esac.esa.int", "esa.int")
+        jar = HTTP.CookieJar()
+        jar.entries[host] = Dict(key => cookie)
+        @test Octofitter._gost_session_id(jar) == "D86BA481D8A264483BAAE26C61046637"
+    end
+
+    # An empty jar, and one holding some unrelated cookie, must raise the
+    # explanatory error rather than a bare KeyError.
+    @test_throws ErrorException Octofitter._gost_session_id(HTTP.CookieJar())
+    other = HTTP.CookieJar()
+    other.entries["example.com"] = Dict("example.com;/;SID" => cookie)
+    @test_throws ErrorException Octofitter._gost_session_id(other)
+end

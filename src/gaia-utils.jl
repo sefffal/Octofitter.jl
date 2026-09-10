@@ -375,6 +375,27 @@ end
 # GOST scan forecast
 # ──────────────────────────────────────────────────────────────────────
 
+# GOST hands the session back as a JSESSIONID cookie, and its export URL has to
+# carry it. There is no public accessor for a jar's contents, so this reads
+# `entries` -- but it must not assume which bucket the cookie lands in.
+#
+# HTTP 1 keys the outer dict by the *request host* ("gaia.esac.esa.int"); HTTP 2
+# keys it by the *registrable domain* ("esa.int"). Naming either one breaks
+# under the other, and no test can catch it, because nothing in CI contacts
+# GOST. The inner key is identical under both, so match on that and let the
+# bucket be whatever the version decides.
+const _GOST_COOKIE_KEY = "gaia.esac.esa.int;/gost;JSESSIONID"
+
+function _gost_session_id(cookiejar)
+    for bucket in values(cookiejar.entries)
+        haskey(bucket, _GOST_COOKIE_KEY) && return bucket[_GOST_COOKIE_KEY].value
+    end
+    error("GOST did not return the JSESSIONID cookie its export URL needs " *
+          "(looked for `$_GOST_COOKIE_KEY` in every bucket of the cookie jar, " *
+          "and found $(collect(keys(cookiejar.entries)))). The service may " *
+          "have changed, or the session may have been rejected.")
+end
+
 """
     forecast_table = GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
 
@@ -461,7 +482,7 @@ function GOST_forecast(ra_deg,dec_deg;baseline=:dr3)
 
     m = match(r"Submitted with id (\d+)", String(resp.body))
     response_id = m.captures[1]
-    session_id = cookiejar.entries["gaia.esac.esa.int"]["gaia.esac.esa.int;/gost;JSESSIONID"].value
+    session_id = _gost_session_id(cookiejar)
     url = "https://gaia.esac.esa.int/gost/export.jsp?id=$session_id/$response_id&format=csv"
     resp_dat = HTTP.get(
         url,
