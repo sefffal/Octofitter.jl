@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Gaia DR4 Epoch Astrometry · Octofitter.jl</title><meta name="title" content="Gaia DR4 Epoch Astrometry · Octofitter.jl"/><meta property="og:title" content="Gaia DR4 Epoch Astrometry · Octofitter.jl"/><meta property="twitter:title" content="Gaia DR4 Epoch Astrometry · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li class="is-active"><a class="tocitem" href>Gaia DR4 Epoch Astrometry</a><ul class="internal"><li><a class="tocitem" href="#OHP-Gaia-Splinter-Session"><span>OHP Gaia Splinter Session</span></a></li><li><a class="tocitem" href="#Gaia-BH-3"><span>Gaia BH 3</span></a></li></ul></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Absolute Astrometry</a></li><li class="is-active"><a href>Gaia DR4 Epoch Astrometry</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Gaia DR4 Epoch Astrometry</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/gaia-iad.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Fitting-Gaia-DR4-IAD"><a class="docs-heading-anchor" href="#Fitting-Gaia-DR4-IAD">Fitting Gaia DR4 IAD</a><a id="Fitting-Gaia-DR4-IAD-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Gaia-DR4-IAD" title="Permalink"></a></h1><p>This tutorial shows how you can use Octofitter to fit preliminary RV and absolute astrometry data from DR4, using various already published data, including:</p><ul><li>Gaia-BH3 black hole (the only real DR4 data released so far)</li><li>Data from https://dace.unige.ch/openData/?record=10.82180/dace-gaia-ohp</li></ul><p>The final format of the Gaia IAD data may change, in which case this tutorial will be updated.</p><pre><code class="language-julia hljs">using CairoMakie
+using Octofitter
+using Distributions
+using CSV, DataFrames</code></pre><h2 id="OHP-Gaia-Splinter-Session"><a class="docs-heading-anchor" href="#OHP-Gaia-Splinter-Session">OHP Gaia Splinter Session</a><a id="OHP-Gaia-Splinter-Session-1"></a><a class="docs-heading-anchor-permalink" href="#OHP-Gaia-Splinter-Session" title="Permalink"></a></h2><p>Download and plot the data:</p><pre><code class="language-julia hljs">fname = download(&quot;https://dace.unige.ch/downloads/open_data/dace-gaia-ohp/files/target_1.csv&quot;)
+df = CSV.read(fname, DataFrame);</code></pre><pre><code class="language-julia hljs">df = CSV.read(joinpath(@__DIR__, &quot;target_1.csv&quot;), DataFrame)</code></pre><p>We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):</p><pre><code class="language-julia hljs">ref_epoch_mjd = 57936.375
+
+gaia_dr4_obs = GaiaDR4AstromObs(
+    df,
+    # For plotting reasons, you need to supply a Gaia ID to know e.g. the absolute Ra and Dec
+    # For these ~simulated examples, you can pick one at random
+    gaia_id=4373465352415301632,
+    variables=@variables begin
+        astrometric_jitter ~ LogUniform(0.00001, 10) # mas
+        ra_offset_mas  ~ Normal(0, 10000)
+        dec_offset_mas ~ Normal(0, 10000)
+        pmra ~ Uniform(-1000, 1000) # mas/yr
+        pmdec ~  Uniform(-1000, 1000) # mas/yr
+        # ra_offset_mas = -0.00154
+        # dec_offset_mas = 0.0019354
+        # pmra = 5.421
+        # pmdec = -24.121
+        plx = system.plx
+        ref_epoch = $ref_epoch_mjd
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">GaiaDR4AstromObs Table with 8 columns and 102 rows:
+      obs_time_tcb  centroid_pos_al  centroid_pos_error_…  parallax_factor_al  ⋯
+    ┌───────────────────────────────────────────────────────────────────────────
+ 1  │ 2.45704e6     -48.1529         0.044486              0.694068            ⋯
+ 2  │ 2.45706e6     -40.9114         0.0447412             -0.583294           ⋯
+ 3  │ 2.45716e6     36.8968          0.0441832             0.36178             ⋯
+ 4  │ 2.45716e6     36.6379          0.0488587             0.358281            ⋯
+ 5  │ 2.45717e6     -20.7433         0.061433              -0.522976           ⋯
+ 6  │ 2.45717e6     -20.9825         0.0470352             -0.526464           ⋯
+ 7  │ 2.45721e6     60.4545          0.0409268             0.7256              ⋯
+ 8  │ 2.45721e6     60.3531          0.0423611             0.725443            ⋯
+ 9  │ 2.45724e6     14.2189          0.0413549             -0.611316           ⋯
+ 10 │ 2.45724e6     14.3917          0.0447546             -0.609065           ⋯
+ 11 │ 2.45727e6     45.7711          0.0384871             0.385425            ⋯
+ 12 │ 2.45727e6     45.7168          0.0406302             0.387544            ⋯
+ 13 │ 2.45733e6     9.56681          0.0398049             -0.162231           ⋯
+ 14 │ 2.45733e6     9.15272          0.0394856             -0.156233           ⋯
+ 15 │ 2.45733e6     9.0219           0.0425311             -0.153719           ⋯
+ 16 │ 2.45733e6     8.60603          0.0402893             -0.147658           ⋯
+ 17 │ 2.45733e6     8.43312          0.0416049             -0.145114           ⋯
+ ⋮  │      ⋮               ⋮                  ⋮                    ⋮           ⋱</code></pre><pre><code class="language- hljs">mjup2msol = Octofitter.mjup2msol
+ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
+
+b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        a ~ LogUniform(0.01, 100)
+        e ~ Uniform(0, 0.99)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0,2pi)
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        mass ~ LogUniform(0.01, 1000)
+    end
+)
+sys = System(
+    name=&quot;target_1&quot;,
+    companions=[b],
+    observations=[gaia_dr4_obs,],
+    variables=@variables begin
+        M = 1.0
+        # Note: keep these physically plausible to prevent numerical errors
+        plx ~ Uniform(0.01,100) # mas
+    end
+)
+model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><p>Find a starting point via global optimization and variational approximation, and plot the initial points against the data:</p><pre><code class="language- hljs">init_chain = initialize!(model)
+octoplot(model, init_chain)</code></pre><p>Sample using parallel tempering (could also use HMC for these unimodel distributions):</p><pre><code class="language- hljs">using Pigeons
+chain, pt = octofit_pigeons(model, n_rounds=10)</code></pre><p>Plot the results:</p><pre><code class="language- hljs">octoplot(model, chain)</code></pre><p>If we pick an individual draw, we can also plot the orbit against the Gaia data more directly. Like RV, this only works with individual draws because the Gaia points are &quot;detrended&quot; in a sense from the values of a particular draw (they move around the plot depending on the draw).</p><pre><code class="language- hljs"># Picks MAP sample
+# gaiastarplot(model, chain)           
+
+# Pick specific arbitrary sample
+idx = rand(1:size(chain,1)) # pick an integer randomly
+Octofitter.gaiastarplot(model, chain, idx)    </code></pre><p>A good practice is to plot a few different values from the posterior, or e.g. plot draws from 5th, 50th, and 95th percentile in a key orbit parameter like</p><ul><li>semi-major axis</li><li>eccentricity </li><li>inclination </li></ul><p>Here, we show semi-major axis/period</p><pre><code class="language- hljs">fig = Figure(size=(920,345))
+
+percentile_positions = round.(Int, [0.05, 0.50, 0.95] .* size(chain,1))
+indices = [partialsortperm(chain[&quot;b_a&quot;][:], k) for k in percentile_positions]
+
+# hint! Try `&quot;b_e&quot;, &quot;b_a&quot;, and &quot;b_i&quot;
+
+ax1 = Octofitter.gaiastarplot!(fig[1,1], model, chain, indices[1]) 
+ax2 = Octofitter.gaiastarplot!(fig[1,2], model, chain, indices[2])
+ax3 = Octofitter.gaiastarplot!(fig[1,3], model, chain, indices[3]) 
+
+ax1.title = &quot;5th percentile period&quot;
+ax2.title = &quot;50th percentile period&quot;
+ax3.title = &quot;95th percentile period&quot;
+hideydecorations!(ax2)
+hideydecorations!(ax3)
+linkaxes!(ax1,ax2,ax3)
+
+fig</code></pre><p>We can also plot a sky track, reconstructed against the official gaia solution (queried automatically when constructing the observation object).</p><pre><code class="language- hljs"># specific sample
+idx = 42
+# optional parameter keplerian_mult: exagerates the keplerian component for visualization
+Octofitter.skytrackplot(model, chain, idx, keplerian_mult=10) </code></pre><p>And of course, you can make a corner plot as usual:</p><pre><code class="language- hljs">using PairPlots
+octocorner(model, chain, small=true)</code></pre><h3 id="Cross-validation"><a class="docs-heading-anchor" href="#Cross-validation">Cross-validation</a><a id="Cross-validation-1"></a><a class="docs-heading-anchor-permalink" href="#Cross-validation" title="Permalink"></a></h3><p>You can use the full suite of tools for construting models that subset different amounts of data in different ways. See &quot;Cross Validataion&quot;.</p><p>The most powerful is exhaustive leave-one-out cross validataion plus calculation of expected log pointwise density (ELPD) to score the fit.</p><pre><code class="language-julia hljs">likelihood_mat, epochs = Octofitter.pointwise_like(model, chain)
+# `likelihood_mat` is now a N_sample x N_data matrix. 
+using ParetoSmooth
+result = psis_loo(
+    collect(likelihood_mat&#39;),
+    chain_index=ones(Int,size(chain,1))
+)</code></pre><h3 id="Simulate-data-from-a-posterior-draw,-and-re-fit-with-or-without-noise"><a class="docs-heading-anchor" href="#Simulate-data-from-a-posterior-draw,-and-re-fit-with-or-without-noise">Simulate data from a posterior draw, and re-fit with or without noise</a><a id="Simulate-data-from-a-posterior-draw,-and-re-fit-with-or-without-noise-1"></a><a class="docs-heading-anchor-permalink" href="#Simulate-data-from-a-posterior-draw,-and-re-fit-with-or-without-noise" title="Permalink"></a></h3><p>Optional consistency checks–-could be used in a loop as part of e.g. simulation based calibration.</p><pre><code class="language-julia hljs">template = Octofitter.mcmcchain2result(model,chain,1)
+sim_system = Octofitter.generate_from_params(model.system, template; add_noise=true)
+sim_model = Octofitter.LogDensityModel(sim_system)
+
+# Optional initialization speed up hack:
+sim_model.starting_points = model.starting_points;
+
+# then re-fit...
+sim_chain, pt = octofit_pigeons(sim_model, n_rounds=5)
+Octofitter.gaiastarplot(sim_model, sim_chain)</code></pre><h2 id="Gaia-BH-3"><a class="docs-heading-anchor" href="#Gaia-BH-3">Gaia BH 3</a><a id="Gaia-BH-3-1"></a><a class="docs-heading-anchor-permalink" href="#Gaia-BH-3" title="Permalink"></a></h2><p>The following tutorial reproduces the fit to Gaia BH3. This one can take longer to run since the orbit is ultra well constrained. For that reason, we don&#39;t run it automatically when building the docs. Please go ahead and run the code on your own computer; ETA=approx 20 minutes.</p><p>As a first step, we will load the astrometry data for Gaia-BH3 and plot it:</p><pre><code class="language-julia hljs">headers = [
+    :transit_id
+    :ccd_id
+    :obs_time_tcb
+    :centroid_pos_al
+    :centroid_pos_error_al
+    :parallax_factor_al
+    :scan_pos_angle
+    :outlier_flag
+]
+df = CSV.read(joinpath(@__DIR__, &quot;astrom.dat&quot;), DataFrame, skipto=7, header=headers, delim=&#39; &#39;, ignorerepeated=true)
+df.epoch = jd2mjd.(df.obs_time_tcb)
+
+scatter(
+    df.obs_time_tcb,
+    df.centroid_pos_al,
+)</code></pre><p>We can now construct a likelihood object for this data. We must also supply the Gaia ID, which will be used to query the full Gaia solution for this object (for now, using DR3):</p><pre><code class="language-julia hljs">ref_epoch_mjd = 57936.375
+gaia_bh3_astrom_obs = GaiaDR4Astrom(
+    df, 
+    gaia_id=4373465352415301632,
+    variables=@variables begin
+        astrometric_jitter ~ LogUniform(0.00001, 10) # mas
+        ra_offset_mas  ~ Normal(0, 10000)
+        dec_offset_mas ~ Normal(0, 10000)
+        pmra ~ Uniform(-1000, 1000) # mas/yr
+        pmdec ~  Uniform(-1000, 1000) # mas/yr
+        # ra_offset_mas = -0.00154
+        # dec_offset_mas = 0.0019354
+        # pmra = 5.421
+        # pmdec = -24.121
+        plx = system.plx
+        ref_epoch = $ref_epoch_mjd
+    end
+)</code></pre><p>This object also has published RV data from Gaia, which we can load and use as normal:</p><pre><code class="language-julia hljs">using CSV, DataFrames
+using OctofitterRadialVelocity
+
+headers_rv = [
+    :transit_id,
+    :obs_time_tcb,
+    :radial_velocity_kms,
+    :radial_velocity_err_kms,
+]
+dfrv = CSV.read(joinpath(@__DIR__, &quot;epochrv.dat&quot;), DataFrame, skipto=7, header=headers_rv, delim=&#39; &#39;, ignorerepeated=true)
+dfrv.epoch = jd2mjd.(dfrv.obs_time_tcb)
+dfrv.rv = dfrv.radial_velocity_kms * 1e3
+dfrv.σ_rv = dfrv.radial_velocity_err_kms * 1e3
+
+# Calculate mean RV for the prior
+mean_rv = mean(dfrv.rv)
+
+rvlike = StarAbsoluteRVObs(
+    dfrv,
+    name=&quot;GaiaRV&quot;,
+    variables=@variables begin
+        offset ~ Normal(mean_rv, 10_000)  # wide prior on RV offset centred on mean RV  
+        jitter ~ LogUniform(0.01, 100_000)  # RV jitter parameter
+    end
+)
+errorbars(
+    dfrv.obs_time_tcb,
+    dfrv.rv,
+    dfrv.σ_rv
+)</code></pre><p>Now, we define a model that incorporates this data:</p><pre><code class="language-julia hljs">mjup2msol = Octofitter.mjup2msol
+ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+orbit_ref_epoch = mean(gaia_dr4_obs.table.epoch)
+
+b = Planet(
+    name=&quot;BH&quot;,
+    basis=Visual{KepOrbit},
+    observations=[],
+    variables=@variables begin
+        a ~ Uniform(0, 1000)
+        e ~ Uniform(0, 0.99)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0,2pi)
+        θ ~ Uniform(0,2pi)
+        tp = θ_at_epoch_to_tperi(θ, $orbit_ref_epoch; M=system.M, e, a, i, ω, Ω)
+        mass = system.M_sec / mjup2msol
+    end
+)
+# DR3 catalog position and reference epoch
+ref_epoch_mjd = Octofitter.meta_gaia_DR3.ref_epoch_mjd
+sys = System(
+    name=&quot;gaiadr4test&quot;,
+    companions=[b],
+    observations=[gaia_bh3_astrom_obs, rvlike,],
+    variables=@variables begin
+        M_pri ~ truncated(Normal(0.76,0.05),lower=0.1) # M sun
+        M_sec ~ LogUniform(1, 1000) # M sun
+        M = M_pri + M_sec
+        # Note: keep these physically plausible to prevent numerical errors
+        plx ~ Uniform(0.01,100) # mas
+    end
+)
+model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><p>We will initialize the model starting positions and visualize them:</p><pre><code class="language-julia hljs"># Note: you can see the required format for paramter initialization by running:
+# nt = Octofitter.drawfrompriors(model.system);
+# println(nt)
+# then remove any derived parameters (parameters in your model that are on the right of an `=`)
+
+init_chain = initialize!(model, (;
+    M_pri = 0.7792923132247755,
+    M_sec = 36.032664849109906,
+    plx = 1.6686144513164856,
+    observations = (GaiaDR4 = (astrometric_jitter = 0.027554101045898238,),
+    GaiaRV = (offset = -359481.6706770764,jitter = 2143.4793485877644)),
+    planets = (BH = (
+        a = 18.905647598089196,
+        e = 0.7583328001601555,
+        i = 1.9216027029499319,
+    ),
+)))
+octoplot(model, init_chain, show_rv=true)</code></pre><div class="admonition is-info" id="Note-eb8621fa12d43b00"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-eb8621fa12d43b00" title="Permalink"></a></header><div class="admonition-body"><p>If you don&#39;t pick the starting point, you cabn also just run Pigeons for 8-10 rounds, which is recommended anyways for convergence, and the sampler will find this result.</p></div></div><p>Now, we can perform the fit. It is a little slow since we have many hundreds of RV and astrometry data points.</p><pre><code class="language-julia hljs">using Pigeons
+chain, pt = octofit_pigeons(model, n_rounds=6) # might need more rounds to converge</code></pre><pre><code class="language-julia hljs">increment_n_rounds!(pt,1)
+chain,pt = octofit_pigeons(pt)</code></pre><p>Finally, we can visualize the results:</p><pre><code class="language-julia hljs">octoplot(model, chain, show_rv=true, mark_epochs_mjd=mjd.([
+    &quot;2017&quot;
+    &quot;2022&quot;
+    &quot;2027&quot;
+]))</code></pre><pre><code class="language-julia hljs"># Picks MAP sample
+Octofitter.gaiastarplot(model, chain)</code></pre><pre><code class="language-julia hljs">octocorner(model, chain, small=true)</code></pre><pre><code class="language-julia hljs">Octofitter.rvpostplot(model, chain)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../hipparcos/">« Hipparcos IAD</a><a class="docs-footer-nextpage" href="../gaia-dr4-simulation/">Gaia DR4 Simulation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Friday 30 January 2026 17:48">Friday 30 January 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

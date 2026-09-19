@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Gaussian Process · Octofitter.jl</title><meta name="title" content="Gaussian Process · Octofitter.jl"/><meta property="og:title" content="Gaussian Process · Octofitter.jl"/><meta property="twitter:title" content="Gaussian Process · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox" checked/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li class="is-active"><a class="tocitem" href>Gaussian Process</a><ul class="internal"><li><a class="tocitem" href="#Gaussian-Process-Fit"><span>Gaussian Process Fit</span></a></li></ul></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Radial Velocity</a></li><li class="is-active"><a href>Gaussian Process</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Gaussian Process</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/rv-gp.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="fit-rv-gp"><a class="docs-heading-anchor" href="#fit-rv-gp">Fit Gaussian Process</a><a id="fit-rv-gp-1"></a><a class="docs-heading-anchor-permalink" href="#fit-rv-gp" title="Permalink"></a></h1><p>This example shows how to fit a Gaussian process to model stellar activity in RV data. It continues from <a href="../rv-1/#fit-rv">Basic RV Fit</a>.</p><div class="admonition is-info" id="Note-1a407b04b07f7829"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-1a407b04b07f7829" title="Permalink"></a></header><div class="admonition-body"><p>Radial velocity modelling is supported in Octofitter via the extension package OctofitterRadialVelocity. To install it, run  <code>pkg&gt; add OctofitterRadialVelocity</code></p></div></div><p>For this example, we will fit the orbit of the planet K2-131 to perform the same fit as in the RadVel <a href="https://radvel.readthedocs.io/en/latest/tutorials/GaussianProcess-tutorial.html">Gaussian Process Fitting</a> tutorial.</p><p>We will use the following packages:</p><pre><code class="language-julia hljs">using Octofitter
+using OctofitterRadialVelocity
+using PlanetOrbits
+using CairoMakie
+using PairPlots
+using CSV
+using DataFrames
+using Distributions</code></pre><p>We will start by downloading and preparing a table of radial velocity measurements, and create a <a href="../api/#OctofitterRadialVelocity.StarAbsoluteRVLikelihood"><code>StarAbsoluteRVLikelihood</code></a> object to hold them.</p><p>The following functions allow you to directly load data from various public RV databases:</p><ul><li><code>HARPS_DR1_rvs(&quot;star-name&quot;)</code></li><li><code>HARPS_RVBank_observations(&quot;star-name&quot;)</code></li><li><code>Lick_rvs(&quot;star-name&quot;)</code></li><li><code>HIRES_rvs(&quot;star-name&quot;)</code></li></ul><p>If you would like to manually specify RV data, use the following format:</p><pre><code class="language-julia hljs">rv_like = StarAbsoluteRVLikelihood(
+    # epoch is in units of MJD. `jd` is a helper function to convert.
+    # you can also put `years2mjd(2016.1231)`.
+    # rv and σ_rv are in units of meters/second
+    (epoch=jd2mjd(2455110.97985),  rv=−6.54, σ_rv=1.30),
+    (epoch=jd2mjd(2455171.90825),  rv=−3.33, σ_rv=1.09),
+    # ... etc.
+    instrument_name=&quot;insert name here&quot;,
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">StarAbsoluteRVLikelihood Table with 3 columns and 2 rows:
+     epoch    rv     σ_rv
+   ┌─────────────────────
+ 1 │ 55110.5  -6.54  1.3
+ 2 │ 55171.4  -3.33  1.09</code></pre><p>For this example, to replicate the results of RadVel, we will download their example data for K2-131 and format it for Octofitter:</p><pre><code class="language-julia hljs">rv_file = download(&quot;https://raw.githubusercontent.com/California-Planet-Search/radvel/master/example_data/k2-131.txt&quot;)
+rv_dat_raw = CSV.read(rv_file, DataFrame, delim=&#39; &#39;)
+rv_dat = DataFrame();
+rv_dat.epoch = jd2mjd.(rv_dat_raw.time)
+rv_dat.rv = rv_dat_raw.mnvel
+rv_dat.σ_rv = rv_dat_raw.errvel
+tels = sort(unique(rv_dat_raw.tel))
+
+# This table includes data from two insturments. We create a separate
+# likelihood object for each:
+rvlike_harps = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== &quot;harps-n&quot;,:],
+    instrument_name=&quot;harps-n&quot;,
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
+)
+rvlike_pfs = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== &quot;pfs&quot;,:],
+    instrument_name=&quot;pfs&quot;,
+    offset=:rv0_pfs,
+    jitter=:jitter_pfs,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">StarAbsoluteRVLikelihood Table with 3 columns and 31 rows:
+      epoch    rv      σ_rv
+    ┌──────────────────────
+ 1  │ 57828.4  -45.17  3.88
+ 2  │ 57828.4  -36.47  4.03
+ 3  │ 57829.2  -20.52  3.55
+ 4  │ 57829.2  -4.58   6.07
+ 5  │ 57830.1  17.71   3.56
+ 6  │ 57830.1  23.34   3.48
+ 7  │ 57830.2  21.34   3.51
+ 8  │ 57830.2  19.92   3.26
+ 9  │ 57830.2  -0.74   3.44
+ 10 │ 57830.3  16.9    3.5
+ 11 │ 57830.3  8.25    4.64
+ 12 │ 57830.4  -4.06   4.91
+ 13 │ 57832.1  -29.51  4.96
+ 14 │ 57832.1  -21.56  4.11
+ 15 │ 57832.2  -25.76  5.59
+ 16 │ 57833.1  2.1     3.91
+ 17 │ 57833.1  4.38    3.73
+ ⋮  │    ⋮       ⋮      ⋮</code></pre><h2 id="Gaussian-Process-Fit"><a class="docs-heading-anchor" href="#Gaussian-Process-Fit">Gaussian Process Fit</a><a id="Gaussian-Process-Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Gaussian-Process-Fit" title="Permalink"></a></h2><p>Let us now add a Gaussian process to model stellar activity. This should improve the fit.</p><p>We start by writing a function that creates a Gaussian process kernel from a set of system parameters. We will create a quasi-periodic kernel.</p><pre><code class="language-julia hljs">using AbstractGPs
+
+function gauss_proc_quasi_periodic(θ_system)
+    # θ_system is a named tuple of variable values for this posterior draw.
+    # Note: for multiple instruments, you can supply different gaussian process
+    # functions that e.g. use different hyper-parameter names.
+    η₁ = θ_system.gp_η₁ # h
+    η₂ = θ_system.gp_η₂ # λ
+    η₃ = θ_system.gp_η₃ # θ
+    η₄ = θ_system.gp_η₄ # ω
+    kernel = η₁^2 *
+        (SqExponentialKernel() ∘ ScaleTransform(1/(η₂))) *
+        (PeriodicKernel(r=[η₄]) ∘ ScaleTransform(1/(η₃)))
+    gp = GP(kernel)
+    return gp
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">gauss_proc_quasi_periodic (generic function with 1 method)</code></pre><p>Now provide this function when we construct our likelihood object:</p><pre><code class="language-julia hljs">rvlike_harps = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== &quot;harps-n&quot;,:],
+    instrument_name=&quot;harps-n&quot;,
+    offset=:rv0_harps,
+    jitter=:jitter_harps,
+    # NEW:
+    gaussian_process = gauss_proc_quasi_periodic
+)
+rvlike_pfs = StarAbsoluteRVLikelihood(
+    rv_dat[rv_dat_raw.tel .== &quot;pfs&quot;,:],
+    instrument_name=&quot;pfs&quot;,
+    offset=:rv0_pfs,
+    jitter=:jitter_pfs,
+    # NEW:
+    gaussian_process = gauss_proc_quasi_periodic
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">StarAbsoluteRVLikelihood Table with 3 columns and 31 rows:
+      epoch    rv      σ_rv
+    ┌──────────────────────
+ 1  │ 57828.4  -45.17  3.88
+ 2  │ 57828.4  -36.47  4.03
+ 3  │ 57829.2  -20.52  3.55
+ 4  │ 57829.2  -4.58   6.07
+ 5  │ 57830.1  17.71   3.56
+ 6  │ 57830.1  23.34   3.48
+ 7  │ 57830.2  21.34   3.51
+ 8  │ 57830.2  19.92   3.26
+ 9  │ 57830.2  -0.74   3.44
+ 10 │ 57830.3  16.9    3.5
+ 11 │ 57830.3  8.25    4.64
+ 12 │ 57830.4  -4.06   4.91
+ 13 │ 57832.1  -29.51  4.96
+ 14 │ 57832.1  -21.56  4.11
+ 15 │ 57832.2  -25.76  5.59
+ 16 │ 57833.1  2.1     3.91
+ 17 │ 57833.1  4.38    3.73
+ ⋮  │    ⋮       ⋮      ⋮</code></pre><p>Note that the two instruments do not need to use the same Gaussian process kernels, nor the same hyper parameter names.</p><p>We create a new system model with added parameters <code>gp_η₁</code> etc for the Gaussian process fit.</p><pre><code class="language-julia hljs">gp_explength_mean = 9.5*sqrt(2.) # sqrt(2)*tau in Dai+ 2017 [days]
+gp_explength_unc = 1.0*sqrt(2.)
+gp_perlength_mean = sqrt(1. /(2. *3.32)) # sqrt(1/(2*gamma)) in Dai+ 2017
+gp_perlength_unc = 0.019
+gp_per_mean = 9.64 # T_bar in Dai+ 2017 [days]
+gp_per_unc = 0.12
+
+# No change to planet model
+@planet b RadialVelocityOrbit begin
+    e = 0
+    ω = 0.0
+    P ~ truncated(Normal(0.3693038/365.25, 0.0000091/365.25),lower=0.00001)
+    a = cbrt(system.M * b.P^2)
+    mass ~ LogUniform(0.001, 10)
+
+    τ ~ UniformCircular(1.0)
+    tp =  b.τ*b.P*365.25 + 57782 # reference epoch for τ. Choose an MJD date near your data.
+end
+
+
+@system k2_132_gp begin
+    M ~ truncated(Normal(0.82, 0.02),lower=0.1) # (Baines &amp; Armstrong 2011).
+
+    rv0_harps ~ Normal(-6693,100) # m/s
+    rv0_pfs ~ Normal(0,100) # m/s
+
+    jitter_harps ~ LogUniform(0.1,100) # m/s
+    jitter_pfs ~ LogUniform(0.1,100) # m/s
+
+    # Add priors on GP kernel hyper-parameters.
+    gp_η₁ ~ truncated(Normal(25,10),lower=0.1,upper=100)
+    # Important: ensure the period and exponential length scales
+    # have physically plausible lower and upper limits to avoid poor numerical conditioning
+    gp_η₂ ~ truncated(Normal(gp_explength_mean,gp_explength_unc),lower=5,upper=100)
+    gp_η₃ ~ truncated(Normal(gp_per_mean,1),lower=2, upper=100)
+    gp_η₄ ~ truncated(Normal(gp_perlength_mean,gp_perlength_unc),lower=0.2, upper=10)
+
+end rvlike_harps rvlike_pfs b
+
+model = Octofitter.LogDensityModel(k2_132_gp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System k2_132_gp of dimension 13 and 71 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>Initialize the starting points, and confirm the data are entered correcly:</p><pre><code class="language-julia hljs">init_chain = initialize!(model)
+fig = Octofitter.rvpostplot(model, init_chain)</code></pre><img src="ad09ea69.png" alt="Example block output"/><p>Sample from the model using MCMC (the no U-turn sampler)</p><pre><code class="language-julia hljs"># Seed the random number generator
+using Random
+rng = Random.Xoshiro(0)
+
+chain = octofit(
+    rng, model,
+    adaptation = 100,
+    iterations = 100,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chains MCMC chain (100×31×1 Array{Float64, 3}):
+
+Iterations        = 1:1:100
+Number of chains  = 1
+Samples per chain = 100
+Wall duration     = 321.61 seconds
+Compute duration  = 321.61 seconds
+parameters        = M, rv0_harps, rv0_pfs, jitter_harps, jitter_pfs, gp_η₁, gp_η₂, gp_η₃, gp_η₄, b_P, b_mass, b_τy, b_τx, b_e, b_ω, b_a, b_τ, b_tp
+internals         = n_steps, is_accept, acceptance_rate, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size, is_adapt, loglike, logpost, tree_depth, numerical_error
+
+Summary Statistics
+ <span class="sgr1">   parameters         mean       std      mcse   ess_bulk   ess_tail      rha ⋯
+ <span class="sgr90">       Symbol      Float64   Float64   Float64    Float64    Float64   Float6 ⋯
+
+             M       0.8206    0.0217    0.0018   138.9254    59.8641    1.015 ⋯
+     rv0_harps   -6693.6240   11.1129    2.5460    21.8236    21.0246    1.108 ⋯
+       rv0_pfs     -11.5708   11.3904    3.3373    14.0816    21.0246    1.173 ⋯
+  jitter_harps       0.8527    0.7887    0.0969    41.2068    66.9638    1.027 ⋯
+    jitter_pfs       4.8910    1.4703    0.1480   103.3881    58.9391    0.998 ⋯
+         gp_η₁      27.3544    4.6837    0.4814   105.4563    91.1868    0.993 ⋯
+         gp_η₂      13.3455    1.6327    0.1716    90.8424    78.3393    0.992 ⋯
+         gp_η₃       9.1337    0.9852    0.0938   102.1252    59.5694    1.003 ⋯
+         gp_η₄       0.3840    0.0211    0.0018   123.9281    87.2420    0.993 ⋯
+           b_P       0.0010    0.0000    0.0000   127.5153   107.1698    1.003 ⋯
+        b_mass       0.0192    0.0057    0.0007    65.6117    74.7352    1.091 ⋯
+          b_τy       0.6191    0.1786    0.0167    97.4666    84.7964    1.023 ⋯
+          b_τx      -0.7698    0.1599    0.0135   154.3921   111.3156    0.998 ⋯
+           b_e       0.0000    0.0000       NaN        NaN        NaN       Na ⋯
+           b_ω       0.0000    0.0000       NaN        NaN        NaN       Na ⋯
+           b_a       0.0094    0.0001    0.0000   139.1379    59.8641    1.016 ⋯
+           b_τ      -0.1421    0.0339    0.0030   110.3011    54.4740    1.009 ⋯
+          b_tp   57781.9475    0.0125    0.0011   110.3011    54.4740    1.009 ⋯
+</span><span class="sgr36">                                                               2 columns omitted
+
+Quantiles
+    parameters         2.5%        25.0%        50.0%        75.0%        97.5 ⋯
+ </span><span class="sgr90">       Symbol      Float64      Float64      Float64      Float64      Float6 ⋯
+
+             M       0.7664       0.8066       0.8206       0.8339       0.863 ⋯
+     rv0_harps   -6710.4658   -6701.6990   -6694.6298   -6683.1900   -6675.061 ⋯
+       rv0_pfs     -33.7650     -21.2350      -9.5681      -2.9409       6.324 ⋯
+  jitter_harps       0.1129       0.3218       0.5937       1.0986       2.757 ⋯
+    jitter_pfs       1.8521       3.9113       4.8683       5.8944       7.671 ⋯
+         gp_η₁      19.8455      24.3414      26.7189      29.6907      37.353 ⋯
+         gp_η₂      10.4598      12.3273      13.3963      14.4368      16.648 ⋯
+         gp_η₃       7.1768       8.6534       9.1010       9.7157      11.222 ⋯
+         gp_η₄       0.3497       0.3670       0.3838       0.3995       0.422 ⋯
+           b_P       0.0010       0.0010       0.0010       0.0010       0.001 ⋯
+        b_mass       0.0085       0.0152       0.0188       0.0237       0.029 ⋯
+          b_τy       0.2821       0.4946       0.6313       0.7455       0.932 ⋯
+          b_τx      -1.0788      -0.8701      -0.7715      -0.6690      -0.486 ⋯
+           b_e       0.0000       0.0000       0.0000       0.0000       0.000 ⋯
+           b_ω       0.0000       0.0000       0.0000       0.0000       0.000 ⋯
+           b_a       0.0092       0.0094       0.0094       0.0095       0.009 ⋯
+           b_τ      -0.2057      -0.1661      -0.1404      -0.1191      -0.081 ⋯
+          b_tp   57781.9240   57781.9387   57781.9482   57781.9560   57781.969 ⋯
+</span><span class="sgr36">                                                                1 column omitted
+</span></span></code></pre><p>For real data, we would want to increase the adaptation and iterations to about 1000 each.</p><p>Plot one sample from the results:</p><pre><code class="language-julia hljs">fig = Octofitter.rvpostplot(model, chain) # saved to &quot;k2_132-rvpostplot.png&quot;</code></pre><img src="f263fa63.png" alt="Example block output"/><p>Plot many samples from the results:</p><pre><code class="language-julia hljs">fig = octoplot(
+    model,
+    chain,
+    # Some optional tweaks to the appearance:
+    N=50, # only plot 50 samples
+    figscale=1.5, # make it larger
+    alpha=0.05, # make each sample more transparent
+    colormap=&quot;#0072b2&quot;,
+) # saved to &quot;k2_132-plot-grid.png&quot;</code></pre><img src="4dedbbcc.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, chain, small=true) # saved to &quot;k2_132-pairplot-small.png&quot;</code></pre><img src="b1f965db.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv-1/">« Basic RV Fit</a><a class="docs-footer-nextpage" href="../rv-multi-planet/">Multiple Planets »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 2 June 2025 16:19">Monday 2 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

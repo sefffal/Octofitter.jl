@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Interferometer Data · Octofitter.jl</title><meta name="title" content="Interferometer Data · Octofitter.jl"/><meta property="og:title" content="Interferometer Data · Octofitter.jl"/><meta property="twitter:title" content="Interferometer Data · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li><a class="tocitem" href="../gaia-dr4-simulation/">Gaia DR4 Simulation</a></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox" checked/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li class="is-active"><a class="tocitem" href>Interferometer Data</a><ul class="internal"><li><a class="tocitem" href="#The-forward-model"><span>The forward model</span></a></li><li><a class="tocitem" href="#Build-the-model"><span>Build the model</span></a></li></ul></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Images and More</a></li><li class="is-active"><a href>Interferometer Data</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Interferometer Data</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/fit-interfere.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Fitting-Interferometric-Observables"><a class="docs-heading-anchor" href="#Fitting-Interferometric-Observables">Fitting Interferometric Observables</a><a id="Fitting-Interferometric-Observables-1"></a><a class="docs-heading-anchor-permalink" href="#Fitting-Interferometric-Observables" title="Permalink"></a></h1><p>In this tutorial, we fit a planet &amp; orbit model to a sequence of interferometric observations. Closure phases and squared visibilities are supported.</p><p>We load the observations in OI-FITS format and model them as a collection of point sources.</p><div class="admonition is-info" id="Note-3c15db3c66a6e97f"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-3c15db3c66a6e97f" title="Permalink"></a></header><div class="admonition-body"><p>Interferometer modelling is supported in Octofitter via the extension package OctofitterInterferometry. It is unregistered — install it with a <code>PackageSpec</code> pointing at the Octofitter repository; see <a href="../installation/#install">Installation</a>.</p></div></div><pre><code class="language-julia hljs">using Octofitter
+using OctofitterInterferometry
+using Distributions
+using CairoMakie
+using PairPlots
+using Statistics
+using Pigeons</code></pre><p>Download simulated JWST AMI observations from our examples folder on GitHub:</p><pre><code class="language-julia hljs">download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_1_.oifits&quot;, &quot;Sim_data_2023_1_.oifits&quot;)
+download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2023_2_.oifits&quot;, &quot;Sim_data_2023_2_.oifits&quot;)
+download(&quot;https://github.com/sefffal/Octofitter.jl/raw/main/examples/AMI_data/Sim_data_2024_1_.oifits&quot;, &quot;Sim_data_2024_1_.oifits&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">&quot;Sim_data_2024_1_.oifits&quot;</code></pre><h2 id="The-forward-model"><a class="docs-heading-anchor" href="#The-forward-model">The forward model</a><a id="The-forward-model-1"></a><a class="docs-heading-anchor-permalink" href="#The-forward-model" title="Permalink"></a></h2><p>An interferometric observation in Octofitter is a set of point sources whose complex visibility is</p><p class="math-container">\[V(u,v) = \frac{\sum_j f_j \, e^{-2\pi i (u\,\Delta\alpha^*_j + v\,\Delta\delta_j)}}{\sum_j f_j}\]</p><p><code>targets</code> names the bodies in that sum, <code>ref</code> is the phase centre the offsets are measured from, and each <code>f_j</code> is that body&#39;s <code>flux_&lt;band&gt;</code> variable — <strong>the host included</strong>. There is no privileged primary: a source may orbit any body, so a moon or the wide component of a hierarchical system is expressible.</p><h2 id="Build-the-model"><a class="docs-heading-anchor" href="#Build-the-model">Build the model</a><a id="Build-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#Build-the-model" title="Permalink"></a></h2><pre><code class="language-julia hljs">A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ truncated(Normal(1.5, 0.01), lower=0.1)   # M⊙
+        flux_K = 1.0        # the host is an ordinary source now
+    end
+)
+
+b = Body(
+    name=&quot;b&quot;,
+    about=A,
+    variables=@variables begin
+        mass = 0.0
+        flux_K ~ truncated(Normal(0, 0.1), lower=0)   # contrast ratio against the host
+
+        a ~ truncated(Normal(2,0.1), lower=0.1)
+        e ~ truncated(Normal(0, 0.05),lower=0, upper=0.90)
+        i ~ Sine()
+        ω ~ UniformCircular()
+        Ω ~ UniformCircular()
+        θ ~ UniformCircular()
+        epoch = 60171.0   # reference epoch for θ. Choose an MJD date near your data.
+    end
+)</code></pre><p>Now the observation itself:</p><pre><code class="language-julia hljs">data = Table([
+    (; filename=&quot;Sim_data_2023_1_.oifits&quot;, epoch=mjd(&quot;2023-06-01&quot;), use_vis2=false),
+    (; filename=&quot;Sim_data_2023_2_.oifits&quot;, epoch=mjd(&quot;2023-08-15&quot;), use_vis2=false),
+    (; filename=&quot;Sim_data_2024_1_.oifits&quot;, epoch=mjd(&quot;2024-06-01&quot;), use_vis2=false),
+])
+vis_obs = InterferometryObs(
+    data,
+    targets = (A, b),      # every source in the visibility sum, host included
+    ref     = A,           # phase centre
+    band    = :K,          # which `flux_&lt;band&gt;` to read
+    name    = &quot;NIRISS-AMI&quot;,
+    variables=@variables begin
+        # Optional calibration parameters:
+        platescale = 1.0               # Platescale divisor [could use: platescale ~ truncated(Normal(1, 0.01), lower=0)]
+        northangle = 0.0               # North angle offset in radians [could use: northangle ~ Normal(0, deg2rad(1))]
+        σ_cp_jitter = 0.0  # closure phase jitter, degrees [could use ~ LogUniform(0.1, 100))
+    end
+)
+
+sys = System(
+    name=&quot;Tutoria&quot;,
+    bodies=[A, b],
+    observations=[vis_obs],
+    variables=@variables begin
+        plx ~ truncated(Normal(100., 0.1), lower=0.1)
+    end
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] observing_geometry = true (auto): no observation can report comparable predictions (InterferometryObs); nothing to measure, so keeping the correction on — no draws needed (seed 0xc70f177e5000001)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] barycentric_lighttime = true (auto): no observation can report comparable predictions (InterferometryObs); nothing to measure, so keeping the correction on — no draws needed (seed 0xc70f177e5000001)</code></pre><p>A second companion is a third entry in <code>targets</code> plus its own <code>flux_K</code> on its own body — not a second element of a <code>Product</code> distribution.</p><div class="admonition is-info" id="Note-526ecf9f61146b95"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-526ecf9f61146b95" title="Permalink"></a></header><div class="admonition-body"><p>If you want to include multiple bands, group these into different <code>InterferometryObs</code> objects with different instrument names (i.e. include the band in the name for the sake of bookkeeping), and give the bodies one <code>flux_&lt;band&gt;</code> variable per band.</p></div></div><div class="admonition is-info" id="Choosing-ref-4806b029ed98f4b5"><header class="admonition-header">Choosing `ref`<a class="admonition-anchor" href="#Choosing-ref-4806b029ed98f4b5" title="Permalink"></a></header><div class="admonition-body"><p>Closure phases, kernel phases and squared visibilities are all invariant to the phase centre, so <code>ref</code> is a free choice — but only modulo 360°: baseline phases are folded into (−180°, 180°] and the triangle sum is not. Keep <code>ref</code> near the flux centroid; <code>Barycentre</code> (the default) is fine for a faint companion, and <code>A</code> is the conventional choice for a bright one.</p></div></div><p>Plot the closure phases:</p><pre><code class="language-julia hljs">fig = Makie.Figure()
+ax = Axis(
+    fig[1,1],
+    xlabel=&quot;index&quot;,
+    ylabel=&quot;closure phase&quot;,
+)
+Makie.stem!(
+    vis_obs.table.cps_data[1][:],
+    label=&quot;epoch 1&quot;,
+)
+Makie.stem!(
+    vis_obs.table.cps_data[2][:],
+    label=&quot;epoch 2&quot;
+)
+Makie.stem!(
+    vis_obs.table.cps_data[3][:],
+    label=&quot;epoch 3&quot;
+)
+Makie.Legend(fig[1,2], ax)
+fig</code></pre><img src="2944b42f.png" alt="Example block output"/><p>Create the model object and sample:</p><pre><code class="language-julia hljs">model = Octofitter.LogDensityModel(sys)
+
+init_chain = initialize!(model)
+results, pt = octofit_pigeons(model, n_rounds=10)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>Preparing model
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number of free variables
+<span class="sgr36"><span class="sgr1">└ </span></span>  D = 12
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
+<span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
+ℓπcallback(θ): 0.000043 seconds
+∇ℓπcallback(θ): 0.000079 seconds (1 allocation: 32 bytes)
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
+<span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 12
+<span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>Verbosity toggle: unrecognized_stop_reason
+<span class="sgr33"><span class="sgr1">│ </span></span> Unrecognized stop reason: Too many steps (101) without any function evaluations (probably search has converged). Defaulting to ReturnCode.Default.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OptimizationBase ~/.julia/packages/OptimizationBase/l4ByK/src/utils.jl:170</span>
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Found sample of initial positions
+<span class="sgr36"><span class="sgr1">│ </span></span>  logpost_range = (184.9697918310053, 195.73083468037453)
+<span class="sgr36"><span class="sgr1">└ </span></span>  mean_logpost = 192.4343961829047
+<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OctofitterPigeonsExt ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt.jl:192</span>
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] barycentric_lighttime = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] observing_geometry = true (user)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>[Tutoria] barycentric_lighttime = true (user)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
+────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
+        2          0        2.7       2.79       1.42   9.66e+06       72.6          0      0.823          1          1
+        4          0       3.46       4.82      0.187   2.01e+05        174          0      0.733          1          1
+        8          0       4.71       5.37      0.381   3.65e+05        181   7.03e-16      0.675          1          1
+       16          0       6.58       5.68      0.772   6.04e+05        178      0.141      0.604          1          1
+       32          0       5.86       5.49       1.54   1.16e+06        179      0.384      0.634          1          1
+       64          5       5.97       2.44        3.8   5.52e+07        176      0.377      0.729          1          1
+      128         11       5.91       2.83       6.11   9.18e+07        176      0.446      0.718          1          1
+      256         38       5.94       2.64       12.2   1.83e+08        176      0.474      0.724          1          1
+      512         67       6.17       2.74       24.3   3.65e+08        176      0.544      0.713          1          1
+ 1.02e+03        155       6.08       2.71       48.7   7.27e+08        176      0.533      0.716          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-success" id="Why-parallel-tempering-here-4e12fd07ba38b54f"><header class="admonition-header">Why parallel tempering here<a class="admonition-anchor" href="#Why-parallel-tempering-here-4e12fd07ba38b54f" title="Permalink"></a></header><div class="admonition-body"><p>Interferometry data is almost always multi-modal (or more precisely non-convex — there is often still a single dominant mode), which is why this page samples with <a href="../api/#Octofitter.octofit_pigeons"><code>octofit_pigeons</code></a> rather than HMC.</p><p>If you do use <a href="../api/#Octofitter.octofit"><code>octofit</code></a> instead, treat a single chain as an exploration of one mode: run several chains from different starting points and compare them before believing a single-peaked posterior.</p></div></div><p>Examine the recovered photometry posterior. The contrast is a body variable, so its chain key is <code>b_flux_K</code>:</p><pre><code class="language-julia hljs">hist(results[:b_flux_K][:], axis=(;xlabel=&quot;flux (K band, relative to host)&quot;))</code></pre><img src="91c420f0.png" alt="Example block output"/><p>Determine the significance of the detection:</p><pre><code class="language-julia hljs">phot = results[:b_flux_K][:]
+snr = mean(phot)/std(phot)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">7.119470053546396</code></pre><p>Plot the resulting orbit:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="0c1d10be.png" alt="Example block output"/><p>Plot only the position at each epoch. <code>construct_system(model, chain)</code> rebuilds one PlanetOrbits system per posterior draw:</p><pre><code class="language-julia hljs">using PlanetOrbits
+posteriors = construct_system(model, results)
+fig = Makie.Figure()
+ax = Makie.Axis(
+    fig[1,1],
+    autolimitaspect = 1,
+    xreversed=true,
+    xlabel=&quot;ΔR.A. (mas)&quot;,
+    ylabel=&quot;ΔDec. (mas)&quot;,
+)
+for epoch in vis_obs.table.epoch
+    sols = [orbitsolve(p, epoch) for p in posteriors]
+    Makie.scatter!(
+        ax,
+        [raoff(s, :b, :A) for s in sols],
+        [decoff(s, :b, :A) for s in sols],
+        label=string(mjd2date(epoch)),
+        markersize=1.5,
+    )
+end
+Makie.Legend(fig[1,2], ax, &quot;date&quot;)
+fig</code></pre><img src="683779ac.png" alt="Example block output"/><p>Finally we can examine the joint photometry and orbit posterior as a corner plot:</p><pre><code class="language-julia hljs">using PairPlots
+using CairoMakie: Makie
+octocorner(model, results)</code></pre><img src="c9fca5ad.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../mass-photometry/">« Connect Mass and Photometry</a><a class="docs-footer-nextpage" href="../fit-likemap/">Likelihood Map »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 5 September 2026 04:43">Saturday 5 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

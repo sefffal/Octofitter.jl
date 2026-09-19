@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Gaia DR4 Simulation · Octofitter.jl</title><meta name="title" content="Gaia DR4 Simulation · Octofitter.jl"/><meta property="og:title" content="Gaia DR4 Simulation · Octofitter.jl"/><meta property="twitter:title" content="Gaia DR4 Simulation · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../faq/">FAQ</a></li><li><a class="tocitem" href="../migration/">Migration Guide</a></li><li><a class="tocitem" href="../v9-migration/">Migrating to v9</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../g23h/">Joint Gaia-Hipparcos (G23H)</a></li><li><a class="tocitem" href="../gaia-dr4-prerelease/">Gaia DR4</a></li><li class="is-active"><a class="tocitem" href>Gaia DR4 Simulation</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Prepare-Star-Info-and-Noise"><span>Prepare Star Info and Noise</span></a></li><li><a class="tocitem" href="#Define-the-Model"><span>Define the Model</span></a></li><li><a class="tocitem" href="#Simulating-a-Planet"><span>Simulating a Planet</span></a></li><li><a class="tocitem" href="#Generate-Synthetic-Data"><span>Generate Synthetic Data</span></a></li><li><a class="tocitem" href="#Generate-synthetic-system-with-simulated-data"><span>Generate synthetic system with simulated data</span></a></li><li><a class="tocitem" href="#Fit-simulated-data"><span>Fit simulated data</span></a></li><li><a class="tocitem" href="#dr4-multi-source"><span>Fitting multiple bound sources</span></a></li></ul></li><li><a class="tocitem" href="../g23h-example/">G23H Full Example</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li><li><a class="tocitem" href="../completeness/">Detection Completeness Mapping</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvplot/">Radial velocity figures</a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../samplers/">Sampler</a></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../orbit-computation/">How Orbits Are Computed</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li><a class="tocitem" href="../dev/architecture/">Architecture Overview</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Absolute Astrometry</a></li><li class="is-active"><a href>Gaia DR4 Simulation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Gaia DR4 Simulation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/gaia-dr4-simulation.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="data-simulation-dr4"><a class="docs-heading-anchor" href="#data-simulation-dr4">Simulating and Fitting Gaia DR4 Data</a><a id="data-simulation-dr4-1"></a><a class="docs-heading-anchor-permalink" href="#data-simulation-dr4" title="Permalink"></a></h1><p>This tutorial demonstrates how to use Octofitter to simulate Gaia DR4 data for a particular target. </p><p><strong>Before reading this, take a look at the general <a href="../data-simulation/#data-simulation">Generating and Fitting Simulated Data</a> tutorial.</strong></p><hr/><p>To be as realistic as possible, we will select a particular star as the basis of our simulation. This will allow us to give reasonable estimates of</p><ul><li>the measurement epochs and scan angles (retrieved from GOST)</li><li>the measurement noise, from that source&#39;s <em>measured</em> Gaia performance</li></ul><blockquote><p><em>&quot;But wait, I just want to simulate a hypothetical planet, why do I have to pick a real star?&quot;</em></p></blockquote><p>Gaia&#39;s sensitivity is far from uniform! If you&#39;re not sure what star to use, just pick a the Gaia ID of your favourite star that has a representative magnitude and colour.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Octofitter, Distributions
+using CairoMakie, PairPlots, Pigeons
+using Statistics</code></pre><h2 id="Prepare-Star-Info-and-Noise"><a class="docs-heading-anchor" href="#Prepare-Star-Info-and-Noise">Prepare Star Info and Noise</a><a id="Prepare-Star-Info-and-Noise-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-Star-Info-and-Noise" title="Permalink"></a></h2><p>A realistic simulation needs three things: <strong>when</strong> Gaia looked at the star and at what scan angle, the <strong>parallax factor</strong> of each of those looks, and <strong>how precisely</strong> each one was measured. The first two come from GOST, Gaia&#39;s scan-law forecast service; the third comes from the G23H catalog (Thompson et al. 2026), which carries a per-source, measured along-scan noise calibration — the same one <a href="../api/#Octofitter.G23HObs"><code>G23HObs</code></a> uses.</p><pre><code class="language-julia hljs">gaia_id = 5064625130502952704
+dr3 = gaia_dr3_solution(; gaia_id)   # α, δ, ϖ, G … from the DR3 archive (cached)
+(; dr3.ra, dr3.dec, dr3.parallax, dr3.phot_g_mean_mag)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(ra = 42.03733343244703, dec = -31.42348623214663, parallax = 5.28197719660611, phot_g_mean_mag = 6.941057)</code></pre><h3 id="The-noise-model"><a class="docs-heading-anchor" href="#The-noise-model">The noise model</a><a id="The-noise-model-1"></a><a class="docs-heading-anchor-permalink" href="#The-noise-model" title="Permalink"></a></h3><p><a href="../api/#Octofitter.g23h_scan_uncertainty"><code>g23h_scan_uncertainty</code></a> reads this source&#39;s calibrated along-scan uncertainties out of the catalog:</p><pre><code class="language-julia hljs">σ = g23h_scan_uncertainty(;
+    gaia_id,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(gaia_id = 5064625130502952704, phot_g_mean_mag = 6.941057, σ_AL = 0.05813228279803717, σ_att = 0.07765105456802447, σ_calib = 0.14901214069992602, σ_formal = 0.09700025040605453, n_ccd = 8.82, σ_transit_formal = 0.03266168325662587, σ_transit_true = 0.15254967593912058)</code></pre><p>Gaia measures a source about nine times per field-of-view transit — the sky-mapper sample, then AF1 through AF9 — and it is the <strong>transit</strong>, not the individual CCD observation, that DR4 publishes an abscissa for. The three calibrated terms split along exactly that line:</p><ul><li><code>σ_AL</code> and <code>σ_att</code> are per-CCD-observation and independent, so they <em>do</em> average down within a transit. Their quadrature sum <code>σ_formal</code> = 0.097 mas is the per-CCD formal error, and <code>σ_transit_formal</code> = <code>σ_formal/√n_ccd</code> = 0.0327 mas is the formal error of one transit-level abscissa (<code>n_ccd</code> = 8.82 for this source, from its own DR3 counts).</li><li><code>σ_calib</code> = 0.149 mas is a calibration error shared by all the CCD observations of a transit, so it does <strong>not</strong> average down — and it is not included in Gaia&#39;s formal uncertainties. For most sources it dominates the <em>actual</em> per-transit scatter, <code>σ_transit_true</code> = 0.153 mas.</li></ul><div class="admonition is-info" id="Why-not-just-pick-a-number-71788e6a68d648e8"><header class="admonition-header">Why not just pick a number<a class="admonition-anchor" href="#Why-not-just-pick-a-number-71788e6a68d648e8" title="Permalink"></a></header><div class="admonition-body"><p>These are calibrated per source against real Gaia performance and vary by a factor of a few from star to star. As a check on the scale: <code>σ_formal</code> reproduces the median <em>published per-CCD</em> <code>centroid_pos_error_al</code> of the three <a href="../gaia-dr4-prerelease/#dr4-prerelease-others">Gaia DR4 pre-release</a> sources to 4–13%, and <code>σ_transit_formal</code> lands 20–35% below the per-transit error bars that the recommended bootstrap-median reduction assigns to those same real transits — about what the inefficiency of a median of nine CCD samples, relative to an optimal combination of them, predicts.</p><p>If your target has no G23H calibration — the catalog does not cover everything — pass the three σ yourself and say where they came from.</p></div></div><h3 id="The-scan-geometry,-and-the-table"><a class="docs-heading-anchor" href="#The-scan-geometry,-and-the-table">The scan geometry, and the table</a><a id="The-scan-geometry,-and-the-table-1"></a><a class="docs-heading-anchor-permalink" href="#The-scan-geometry,-and-the-table" title="Permalink"></a></h3><p><a href="../api/#Octofitter.gaia_dr4_transit_template"><code>gaia_dr4_transit_template</code></a> queries GOST for the transits Gaia is forecast to make of this position over the DR4 baseline and returns them in the format <a href="../api/#Octofitter.GaiaDR4AstromObs"><code>GaiaDR4AstromObs</code></a> reads:</p><pre><code class="language-julia hljs">transits = gaia_dr4_transit_template(;
+    ra = dr3.ra,
+    dec = dr3.dec,
+    # We *simulate* the true scatter; see the note below on what a real DR4
+    # table would instead quote.
+    σ_al = σ.σ_transit_true,
+    baseline = :dr4,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Table with 6 columns and 191 rows:
+      epoch    scan_pos_angle  parallax_factor_al  centroid_pos_al  centroid_pos_error_al  outlier_flag
+    ┌──────────────────────────────────────────────────────────────────────────────────────────────────
+ 1  │ 56912.9  -130.619        -0.429109           0.0              0.15255                0
+ 2  │ 56913.0  -130.364        -0.431172           0.0              0.15255                0
+ 3  │ 56949.3  -121.721        0.0697506           0.0              0.15255                0
+ 4  │ 56949.5  -120.674        0.0611594           0.0              0.15255                0
+ 5  │ 56949.8  -119.627        0.0525574           0.0              0.15255                0
+ 6  │ 56949.9  -119.317        0.0500108           0.0              0.15255                0
+ 7  │ 56950.0  -118.579        0.0439458           0.0              0.15255                0
+ 8  │ 56950.1  -118.269        0.0413966           0.0              0.15255                0
+ 9  │ 56950.3  -117.53         0.0353258           0.0              0.15255                0
+ 10 │ 56950.4  -117.22         0.0327743           0.0              0.15255                0
+ 11 │ 56950.5  -116.481        0.0266986           0.0              0.15255                0
+ 12 │ 56950.6  -116.171        0.0241451           0.0              0.15255                0
+ 13 │ 56950.8  -115.432        0.0180653           0.0              0.15255                0
+ 14 │ 56950.9  -115.121        0.0155103           0.0              0.15255                0
+ 15 │ 56951.0  -114.382        0.00942721          0.0              0.15255                0
+ 16 │ 56951.1  -114.072        0.00687104          0.0              0.15255                0
+ 17 │ 56951.4  -113.022        -0.00177141         0.0              0.15255                0
+ 18 │ 56951.5  -112.283        -0.00785838         0.0              0.15255                0
+ 19 │ 56951.6  -111.972        -0.0104158          0.0              0.15255                0
+ 20 │ 56951.8  -111.232        -0.0165034          0.0              0.15255                0
+ 21 │ 56951.9  -110.922        -0.0190609          0.0              0.15255                0
+ 22 │ 56952.0  -110.182        -0.0251482          0.0              0.15255                0
+ 23 │ 56952.1  -109.872        -0.0277054          0.0              0.15255                0
+ 24 │ 56952.3  -109.132        -0.0337916          0.0              0.15255                0
+ 25 │ 56952.4  -108.821        -0.0363481          0.0              0.15255                0
+ 26 │ 56952.5  -108.082        -0.0424323          0.0              0.15255                0
+ 27 │ 56952.6  -107.771        -0.0449878          0.0              0.15255                0
+ 28 │ 56952.8  -107.032        -0.051069           0.0              0.15255                0
+ 29 │ 56952.9  -106.721        -0.0536231          0.0              0.15255                0
+ 30 │ 56953.0  -105.982        -0.0597006          0.0              0.15255                0
+ 31 │ 56953.1  -105.671        -0.0622529          0.0              0.15255                0
+ 32 │ 56953.3  -104.932        -0.0683258          0.0              0.15255                0
+ 33 │ 56953.5  -103.882        -0.0769433          0.0              0.15255                0
+ 34 │ 57007.5  -89.091         0.595396            0.0              0.15255                0
+ 35 │ 57007.6  -88.8952        0.593949            0.0              0.15255                0
+ 36 │ 57036.3  18.2292         -0.701687           0.0              0.15255                0
+ 37 │ 57103.2  54.6961         -0.306577           0.0              0.15255                0
+ 38 │ 57103.3  54.4219         -0.301977           0.0              0.15255                0
+ 39 │ 57103.4  53.7642         -0.290931           0.0              0.15255                0
+ 40 │ 57110.7  24.4503         0.205861            0.0              0.15255                0
+ 41 │ 57110.8  24.1725         0.210428            0.0              0.15255                0
+ 42 │ 57111.0  23.5158         0.221203            0.0              0.15255                0
+ 43 │ 57111.0  23.2418         0.225689            0.0              0.15255                0
+ 44 │ 57158.6  128.684         -0.341238           0.0              0.15255                0
+ 45 │ 57158.7  128.455         -0.337466           0.0              0.15255                0
+ 46 │ 57170.9  83.2315         0.467078            0.0              0.15255                0
+ 47 │ 57171.0  83.0155         0.470901            0.0              0.15255                0
+ 48 │ 57211.8  -167.53         -0.71429            0.0              0.15255                0
+ 49 │ 57242.8  125.885         0.684094            0.0              0.15255                0
+ 50 │ 57269.7  -134.31         -0.507783           0.0              0.15255                0
+ ⋮  │    ⋮           ⋮                 ⋮                  ⋮                   ⋮                 ⋮</code></pre><p>One row per transit, with <code>epoch</code> in MJD, <code>scan_pos_angle</code> ψ in <strong>degrees</strong> (the unit the Gaia archive publishes it in, and the unit <code>GaiaDR4AstromObs</code> ingests), GOST&#39;s own <code>parallax_factor_al</code>, and <code>centroid_pos_al</code> left at zero — Octofitter&#39;s data simulation fills those in below. You can of course put your own measurements there instead.</p><p>A forecast is optimistic about <em>how many</em> transits you get: it lists every scheduled one, while real DR4 loses some to dead time and more to AGIS&#39;s outlier rejection, which is harshest for bright stars. Gaia-4 goes 122 forecast → 109 in the pre-release → 93 used by AGIS. If that matters for your question, drop rows.</p><div class="admonition is-info" id="Transit-level,-not-CCD-level-e1b4e897a8a5052d"><header class="admonition-header">Transit level, not CCD level<a class="admonition-anchor" href="#Transit-level,-not-CCD-level-e1b4e897a8a5052d" title="Permalink"></a></header><div class="admonition-body"><p>An earlier version of this tutorial expanded each visibility window into ~9 synthetic CCD observations and shrank the error bars to match. Don&#39;t do that: the CCD observations within one transit are taken seconds apart and share their attitude and calibration errors, so treating them as independent measurements overstates the astrometric information by up to √9. DR4 publishes one abscissa per transit, so simulating at transit level is both simpler and closer to the data you will actually fit. The <a href="../gaia-dr4-prerelease/#dr4-prerelease-reduction">pre-release tutorial</a> shows the matching reduction for real CCD-level tables.</p></div></div><div class="admonition is-info" id="The-parallax-factors-are-GOST&#39;s,-not-the-Earth&#39;s-fc7d7232ae6cbfa0"><header class="admonition-header">The parallax factors are GOST&#39;s, not the Earth&#39;s<a class="admonition-anchor" href="#The-parallax-factors-are-GOST&#39;s,-not-the-Earth&#39;s-fc7d7232ae6cbfa0" title="Permalink"></a></header><div class="admonition-body"><p>How good is a forecast? For Gaia-4, whose real DR4 transits we have, GOST&#39;s forecast covers the same MJD 56890–58843 span, matches 108 of the 109 real transits, and reproduces their published <code>scan_pos_angle</code> to 0.004° rms and their published <code>parallax_factor_al</code> to 5 × 10⁻⁵ rms.</p><p>That last number is why <code>gaia_dr4_transit_template</code> carries GOST&#39;s own parallax factors through instead of recomputing them from an Earth ephemeris, as an earlier version of this tutorial did: Gaia observes from L2, about 0.01 AU from the geocentre, so an Earth-centred factor is off by 0.005 rms — a hundred times worse, and 0.07 mas at ϖ = 13 mas, about twice the per-transit precision.</p></div></div><div class="admonition is-info" id="What-a-real-DR4-table-would-quote-6312edf61a960bec"><header class="admonition-header">What a real DR4 table would quote<a class="admonition-anchor" href="#What-a-real-DR4-table-would-quote-6312edf61a960bec" title="Permalink"></a></header><div class="admonition-body"><p>We put the <em>true</em> per-transit scatter in <code>centroid_pos_error_al</code>, so the data are scattered by exactly the uncertainty the likelihood is told about — the simplest self-consistent simulation. A real DR4 table instead quotes the formal error (<code>σ_transit_formal</code>), leaving the calibration term for the observation&#39;s <code>astrometric_jitter</code> to absorb. To simulate <em>that</em>, generate the data as below with <code>σ_al = σ.σ_transit_true</code>, then rebuild the observation from the simulated table with <code>centroid_pos_error_al</code> overwritten by <code>σ.σ_transit_formal</code>, and keep <code>astrometric_jitter</code> free — it should come back at ≈ <code>σ.σ_calib</code>.</p></div></div><pre><code class="language-julia hljs"># The Gaia DR4 reference epoch, J2017.5.
+ref_epoch_mjd = 57936.375
+
+gaiaIADobs = GaiaDR4AstromObs(transits;
+    target = Photocentre,
+    ref = Barycentre,
+    name = &quot;GaiaDR4&quot;,
+    variables=@variables begin
+        astrometric_jitter ~ LogUniform(0.00001, 10) # mas
+        ra_offset_mas  ~ Normal(0, 10000)
+        dec_offset_mas ~ Normal(0, 10000)
+        pmra ~ Uniform(-1000, 1000) # mas/yr
+        pmdec ~  Uniform(-1000, 1000) # mas/yr
+        ref_epoch = $ref_epoch_mjd
+    end
+)</code></pre><div class="admonition is-info" id="What-the-observation-carries-c1f6abcc8458b8c5"><header class="admonition-header">What the observation carries<a class="admonition-anchor" href="#What-the-observation-carries-c1f6abcc8458b8c5" title="Permalink"></a></header><div class="admonition-body"><p><code>GaiaDR4AstromObs</code> takes data, references and variables and nothing else — no <code>gaia_id=</code>, and no archive query. It declares <code>target=Photocentre</code> (the system&#39;s flux-weighted point, the default) measured against <code>ref=Barycentre</code>, and reads its parallax from the system&#39;s own <code>plx</code>.</p></div></div><h2 id="Define-the-Model"><a class="docs-heading-anchor" href="#Define-the-Model">Define the Model</a><a id="Define-the-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-Model" title="Permalink"></a></h2><p>Now, we define a model that incorporates this data. Bodies are model nodes in their own right — the host star included — and every mass is in <strong>solar masses</strong>:</p><pre><code class="language-julia hljs">orbit_ref_epoch = mean(gaiaIADobs.table.epoch)
+
+A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass = 1.0     # Msol
+        flux = 1.0     # sets the flux scale the photocentre is weighted by
+    end
+)
+
+b = Body(
+    name=&quot;b&quot;,
+    about=A,
+    variables=@variables begin
+        mass ~ LogUniform(0.01mjup, 1000mjup)   # Msol
+        flux = 0.0                              # dark companion
+        a ~ LogUniform(0.01, 100)
+        e ~ Uniform(0, 0.99)
+        ω ~ Uniform(0,2pi)
+        i ~ Sine()
+        Ω ~ Uniform(0,2pi)
+        θ ~ Uniform(0,2pi)
+        epoch = $orbit_ref_epoch
+    end
+)
+
+sys = System(
+    name=&quot;target_1&quot;,
+    bodies=[A, b],
+    observations=[gaiaIADobs],
+    variables=@variables begin
+        # Note: keep these physically plausible to prevent numerical errors
+        plx ~ Uniform(0.01,100) # mas
+    end
+)
+model = Octofitter.LogDensityModel(sys, verbosity=4)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System target_1 of dimension 13 and 191 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><p>A <code>Photocentre</code> target needs at least one body to declare a flux, so <code>A</code> carries <code>flux = 1.0</code>; every other body&#39;s <code>flux</code> is then a contrast ratio against it. With <code>b.flux = 0.0</code> the photocentre is exactly the host, which is the right model for a dark companion.</p><h2 id="Simulating-a-Planet"><a class="docs-heading-anchor" href="#Simulating-a-Planet">Simulating a Planet</a><a id="Simulating-a-Planet-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-a-Planet" title="Permalink"></a></h2><p>Now we have defined our template model! Normally, we would just fit this... Here, we will hook into Octofitter&#39;s simulation capabilities to generate a new model for us with a simulated planet.</p><h2 id="Generate-Synthetic-Data"><a class="docs-heading-anchor" href="#Generate-Synthetic-Data">Generate Synthetic Data</a><a id="Generate-Synthetic-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-Synthetic-Data" title="Permalink"></a></h2><p>We have two choices for generating simulated data:</p><ol><li>Draw values from the priors</li><li>Specifying values manually</li></ol><p>We will look at each.</p><h3 id="1.-Draw-values-from-the-priors"><a class="docs-heading-anchor" href="#1.-Draw-values-from-the-priors">1. Draw values from the priors</a><a id="1.-Draw-values-from-the-priors-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Draw-values-from-the-priors" title="Permalink"></a></h3><p>We can draw a value from the priors like so:</p><pre><code class="language-julia hljs">params_to_simulate = Octofitter.drawfrompriors(model.system)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(plx = 22.422808781645475, bodies = (A = (mass = 1.0, flux = 1.0), b = (mass = 0.149143371028257, a = 33.10748078866617, e = 0.22021864826111212, ω = 2.6409584268994752, i = 1.7647970297952005, Ω = 3.9732953371680004, θ = 2.621935725239203, flux = 0.0, epoch = 57754.646188437)), observations = (GaiaDR4 = (astrometric_jitter = 0.4728781251992313, ra_offset_mas = 6045.05432404232, dec_offset_mas = 8966.951134107087, pmra = -25.656579395122662, pmdec = 900.2872891644834, ref_epoch = 57936.375),))</code></pre><h3 id="2.-Specifying-values-manually"><a class="docs-heading-anchor" href="#2.-Specifying-values-manually">2. Specifying values manually</a><a id="2.-Specifying-values-manually-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Specifying-values-manually" title="Permalink"></a></h3><p>We can also specify all values for the simulation manually. This process is a bit more involved. </p><div class="admonition is-warning" id="Warning-16272b6c0b535b6f"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-16272b6c0b535b6f" title="Permalink"></a></header><div class="admonition-body"><p>Note that the output below is just an example, you must generate your own template from your model and modify it as needed. The exact structure is not garuanteed to be stable between versions of Octofitter.</p></div></div><p>Note the shape: system variables at the top level, then <strong><code>bodies</code></strong> — the host star included — then <code>observations</code>.</p><pre><code class="language-julia hljs">params_to_simulate = (
+    plx = 16.138978209522527,
+    bodies = (
+        A = (
+            mass = 1.0,
+            flux = 1.0,
+        ),
+        b = (
+            mass = 10.0 * Octofitter.mjup,
+            a = 2.0,
+            e = 0.01,
+            ω = 0.01,
+            i = 0.01,
+            Ω = 0.6,
+            θ = 3.5226970272017826,
+            epoch = orbit_ref_epoch,
+            flux = 0.0,
+        ),
+    ),
+    observations = (
+        GaiaDR4 = (
+            astrometric_jitter = 0.015590772157762368,
+            ra_offset_mas = 0.05413791355838311,
+            dec_offset_mas = 0.0889816167388366,
+            pmra = 5.301074192615374,
+            pmdec = -24.188882826919325,
+            ref_epoch = 57936.375,
+        ),
+    ),
+)</code></pre><h2 id="Generate-synthetic-system-with-simulated-data"><a class="docs-heading-anchor" href="#Generate-synthetic-system-with-simulated-data">Generate synthetic system with simulated data</a><a id="Generate-synthetic-system-with-simulated-data-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-synthetic-system-with-simulated-data" title="Permalink"></a></h2><p>We will call <code>Octofitter.generate_from_params</code> to generate a model with new synthetic observations. If you set <code>add_noise = true</code>, the generated data points will have scatter according to the <code>centroid_pos_error_al</code> specified above. </p><pre><code class="language-julia hljs">sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
+sim_model = Octofitter.LogDensityModel(sim_system)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LogDensityModel for System target_1 of dimension 13 and 191 epochs with fields .ℓπcallback and .∇ℓπcallback
+</code></pre><h2 id="Fit-simulated-data"><a class="docs-heading-anchor" href="#Fit-simulated-data">Fit simulated data</a><a id="Fit-simulated-data-1"></a><a class="docs-heading-anchor-permalink" href="#Fit-simulated-data" title="Permalink"></a></h2><p>Follow the usual flow documented elsewhere.</p><p>Find starting point for MCMC (via variational approximation)</p><pre><code class="language-julia hljs">init_chain = initialize!(sim_model)
+octoplot(sim_model, init_chain)</code></pre><img src="67c824d0.png" alt="Example block output"/><p>Fit:</p><pre><code class="language-julia hljs">chain, pt = octofit_pigeons(sim_model, n_rounds=9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(chain = MCMC chain (512×22×1 Array{Float64, 3}), pt = PT(checkpoint = false, ...))</code></pre><div class="admonition is-info" id="Why-parallel-tempering-here-31ddbb15ab9186d3"><header class="admonition-header">Why parallel tempering here<a class="admonition-anchor" href="#Why-parallel-tempering-here-31ddbb15ab9186d3" title="Permalink"></a></header><div class="admonition-body"><p>A single epoch-astrometry time series constrains the orbit only through the along-scan abscissa, and that leaves genuinely separated solutions — most conspicuously the ±180° ambiguity in Ω and the degeneracy between period and the fraction of an orbit the scan window covers. <a href="../api/#Octofitter.octofit_pigeons"><code>octofit_pigeons</code></a> runs a ladder of tempered chains down to the prior, where those solutions merge, so replicas can move between them and each stays represented in the posterior.</p><p><a href="../api/#Octofitter.octofit"><code>octofit</code></a> will sample this model too and is considerably cheaper. If you use it, seed it with <a href="../api/#Octofitter.initialize!"><code>initialize!</code></a> as above and run a few chains from different starting points, so a mode one chain missed shows up as disagreement rather than as false confidence.</p></div></div><pre><code class="language-julia hljs">octoplot(sim_model, chain)</code></pre><img src="fbcd2a33.png" alt="Example block output"/><p><code>GaiaDR4AstromObs</code> declares one plot channel (the along-scan abscissa), so <code>octoplot</code> draws the data, the modelled abscissae, a residual strip and a residual histogram automatically. Restrict the <a href="../api/#Octofitter.PosteriorSeries"><code>PosteriorSeries</code></a> to get the &quot;one particular draw&quot; version:</p><pre><code class="language-julia hljs">octoplot(Octofitter.PosteriorSeries(sim_model, chain; ii=[1]))</code></pre><img src="38d71e4a.png" alt="Example block output"/><p><a href="../api/#Octofitter.gaiastarplot"><code>gaiastarplot</code></a> shows that single draw in the sky plane instead — the reflex track with each transit&#39;s along-scan residual re-projected along its own scan angle, which is where the one-dimensional nature of a Gaia measurement becomes visible:</p><pre><code class="language-julia hljs">Octofitter.gaiastarplot(sim_model, chain, 1)</code></pre><img src="e5ec28f4.png" alt="Example block output"/><p>Finally, compare the recovered orbit against the truth: rebuild the <code>PlanetOrbits.System</code> for each draw with <code>construct_system</code> and plot the tracks directly, which is what the sky panel does internally:</p><pre><code class="language-julia hljs">ts = range(minimum(transits.epoch), minimum(transits.epoch) + 4000, length=300)
+
+fig = Figure(size=(500,500))
+ax = Axis(fig[1,1], xlabel=&quot;Δα⋆ [mas]&quot;, ylabel=&quot;Δδ [mas]&quot;,
+          aspect=DataAspect(), xreversed=true)
+
+for i in rand(1:size(chain,1), 50)
+    posys = construct_system(sim_model, chain, i)
+    traj = orbitsolve(posys, ts)
+    lines!(ax, [raoff(traj[k], :b, :A) for k in eachindex(ts)],
+               [decoff(traj[k], :b, :A) for k in eachindex(ts)],
+           color=(:black, 0.1))
+end
+
+# the true orbit, in red
+true_sys = construct_system(sim_model, params_to_simulate)
+true_traj = orbitsolve(true_sys, ts)
+lines!(ax, [raoff(true_traj[k], :b, :A) for k in eachindex(ts)],
+           [decoff(true_traj[k], :b, :A) for k in eachindex(ts)],
+       color=:red, linewidth=3, label=&quot;truth&quot;)
+scatter!(ax, [0], [0], color=:orange, markersize=12)
+axislegend(ax)
+fig</code></pre><img src="700d123d.png" alt="Example block output"/><pre><code class="language-julia hljs">octocorner(sim_model, chain, small=true)</code></pre><img src="cf8629f3.png" alt="Example block output"/><hr/><h2 id="dr4-multi-source"><a class="docs-heading-anchor" href="#dr4-multi-source">Fitting multiple bound sources</a><a id="dr4-multi-source-1"></a><a class="docs-heading-anchor-permalink" href="#dr4-multi-source" title="Permalink"></a></h2><p>Everything above treats the system as <strong>one</strong> Gaia source. Gaia does not catalogue systems, it catalogues <em>sources</em>: a resolved binary is two <code>source_id</code>s, two DR3 solutions, and — in DR4 — two entirely separate tables of epoch astrometry, each with its own scan geometry and its own noise. The physics behind them is one system.</p><p>This section builds one model that holds both stars of a wide binary, gives each its own simulated DR4 series, and fits them together. Nothing here is new machinery: the two stars are <code>Body</code>s like any other, <code>B</code> orbits <code>A</code> like any companion, and each <a href="../api/#Octofitter.GaiaDR4AstromObs"><code>GaiaDR4AstromObs</code></a> simply names the body its source <em>is</em>.</p><h3 id="Why-one-fit-and-not-two"><a class="docs-heading-anchor" href="#Why-one-fit-and-not-two">Why one fit and not two</a><a id="Why-one-fit-and-not-two-1"></a><a class="docs-heading-anchor-permalink" href="#Why-one-fit-and-not-two" title="Permalink"></a></h3><p>Fit each star on its own and each DR4 series gives you the same five numbers a Gaia catalogue entry does — position, proper motion, parallax — plus, if you are lucky, a <strong>curvature</strong>: the deviation from a straight line as the star swings about the barycentre. One curvature on its own tells you almost nothing, because it measures <code>G·m_companion / r²</code> and you know neither the companion&#39;s mass nor the three-dimensional separation <code>r</code>.</p><p>Put both stars in one model and three things change:</p><ul><li><strong>The two curvatures are not independent.</strong> They point in exactly opposite directions, and their amplitudes are in the ratio <code>m_B : m_A</code>. The mass <em>ratio</em> therefore falls straight out of the data, with no mass–luminosity relation and no assumption about <code>r</code>. One star alone can never give you this.</li><li><strong>The frame is shared.</strong> Both stars sit on one sky, moving with one systemic motion, so the separation and the relative proper motion are measured in a common frame at the precision of the abscissae — tens of microarcseconds — rather than as the difference of two independently-solved catalogue entries.</li><li><strong>There is one parallax, not two.</strong> Fitted separately, the two sources return two parallaxes that disagree at the noise level. Fitted together, they share <code>plx</code>, and what was a discrepancy becomes what it physically is: <code>z</code>, the line-of-sight separation of the two stars.</li></ul><h3 id="The-pair"><a class="docs-heading-anchor" href="#The-pair">The pair</a><a id="The-pair-1"></a><a class="docs-heading-anchor-permalink" href="#The-pair" title="Permalink"></a></h3><p><a href="https://simbad.cds.unistra.fr/simbad/sim-id?Ident=GJ+15+A">GJ 15</a> (Groombridge 34) is a pair of M dwarfs 3.56 pc away, about 34″ apart on the sky. Both components are in Gaia DR3 with full five-parameter solutions and radial velocities, two and a half magnitudes apart in <code>G</code> — so each gets its own G23H noise calibration, and they are not the same number.</p><pre><code class="language-julia hljs">using Octofitter, Distributions
+using CairoMakie, PairPlots
+using Statistics, Random
+
+gaia_id_A = 385334230892516480   # GJ 15 A
+gaia_id_B = 385334196532776576   # GJ 15 B
+
+dr3_A = gaia_dr3_solution(; gaia_id=gaia_id_A)
+dr3_B = gaia_dr3_solution(; gaia_id=gaia_id_B)
+
+(; G_A = dr3_A.phot_g_mean_mag, G_B = dr3_B.phot_g_mean_mag,
+   plx_A = dr3_A.parallax, plx_B = dr3_B.parallax)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(G_A = 7.218567, G_B = 9.686646, plx_A = 280.706821579123, plx_B = 280.6947310460246)</code></pre><h3 id="Noise,-per-source"><a class="docs-heading-anchor" href="#Noise,-per-source">Noise, per source</a><a id="Noise,-per-source-1"></a><a class="docs-heading-anchor-permalink" href="#Noise,-per-source" title="Permalink"></a></h3><p><a href="../api/#Octofitter.g23h_scan_uncertainty"><code>g23h_scan_uncertainty</code></a> is called once per <code>source_id</code>. The fainter star has the larger calibration term, and a per-transit scatter about 40% worse — the kind of difference that a single hand-picked σ would paper over.</p><pre><code class="language-julia hljs">σ_A = g23h_scan_uncertainty(; gaia_id=gaia_id_A, catalog=catalog_A #= hide =#)
+σ_B = g23h_scan_uncertainty(; gaia_id=gaia_id_B, catalog=catalog_B #= hide =#)
+
+(; σ_transit_true_A = σ_A.σ_transit_true, σ_transit_true_B = σ_B.σ_transit_true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(σ_transit_true_A = 0.15193379319948366, σ_transit_true_B = 0.20879937593494458)</code></pre><h3 id="Scan-geometry,-per-source"><a class="docs-heading-anchor" href="#Scan-geometry,-per-source">Scan geometry, per source</a><a id="Scan-geometry,-per-source-1"></a><a class="docs-heading-anchor-permalink" href="#Scan-geometry,-per-source" title="Permalink"></a></h3><p>Two GOST queries, one per position. At 34″ the two stars share the scan law almost exactly — same epochs to within a fraction of a second, same scan angles — but they are <em>not</em> guaranteed to get the same transits, and asking per source is both more honest and no more work.</p><pre><code class="language- hljs">transits_A = gaia_dr4_transit_template(;
+    ra = dr3_A.ra, dec = dr3_A.dec, σ_al = σ_A.σ_transit_true, baseline = :dr4)
+transits_B = gaia_dr4_transit_template(;
+    ra = dr3_B.ra, dec = dr3_B.dec, σ_al = σ_B.σ_transit_true, baseline = :dr4)
+
+(; n_A = length(transits_A.epoch), n_B = length(transits_B.epoch),
+   baseline_yr = (maximum(transits_A.epoch) - minimum(transits_A.epoch))/365.25)</code></pre><h3 id="The-relative-orbit,-as-a-state-vector"><a class="docs-heading-anchor" href="#The-relative-orbit,-as-a-state-vector">The relative orbit, as a state vector</a><a id="The-relative-orbit,-as-a-state-vector-1"></a><a class="docs-heading-anchor-permalink" href="#The-relative-orbit,-as-a-state-vector" title="Permalink"></a></h3><p>A 34″ separation at 3.56 pc is 122 AU, which for two M dwarfs is a period of order 1500 years. Over Gaia&#39;s 5.4-year baseline the pair moves through less than half a percent of its orbit, and <code>a</code>, <code>e</code>, <code>i</code>, <code>ω</code>, <code>Ω</code>, <code>tp</code> are wildly degenerate with one another — but the <em>state</em> is not. Position and velocity at one epoch are exactly what a short arc measures, so parametrize with them: Octofitter accepts a <a href="https://sefffal.github.io/PlanetOrbits.jl/dev/parametrizations/#Cartesian-initial-conditions">Cartesian state</a> (<code>x</code>, <code>y</code>, <code>z</code>, <code>vx</code>, <code>vy</code>, <code>vz</code> at an <code>epoch</code>) in place of the six elements.</p><p>The DR3 catalogue already gives four of those six directly — the sky separation and the difference of the two proper motions — and the radial velocities give a fifth. Only the line-of-sight separation <code>z</code> is unmeasured.</p><pre><code class="language-julia hljs">ref_epoch_mjd = 57936.375        # J2017.5, the DR4 reference epoch
+dr3_epoch_mjd = 57388.5          # J2016.0, the DR3 reference epoch
+Δt_yr = (ref_epoch_mjd - dr3_epoch_mjd) / 365.25
+
+plx0   = (dr3_A.parallax + dr3_B.parallax) / 2
+Δpmra  = dr3_B.pmra  - dr3_A.pmra
+Δpmdec = dr3_B.pmdec - dr3_A.pmdec
+sep_ra_mas  = (dr3_B.ra - dr3_A.ra) * cosd(dr3_A.dec) * 3.6e6 + Δpmra  * Δt_yr
+sep_dec_mas = (dr3_B.dec - dr3_A.dec) * 3.6e6                 + Δpmdec * Δt_yr
+
+x_cat,  y_cat  = sep_ra_mas / plx0, sep_dec_mas / plx0   # AU
+vx_cat, vy_cat = Δpmra / plx0, Δpmdec / plx0             # AU / julian year
+vz_cat = (dr3_B.radial_velocity - dr3_A.radial_velocity) / 4.740470446
+
+(; separation_arcsec = hypot(sep_ra_mas, sep_dec_mas)/1000,
+   x_cat, y_cat, vx_cat, vy_cat, vz_cat)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(separation_arcsec = 34.2635022434486, x_cat = 111.19335258801355, y_cat = 50.35569042918389, vx_cat = -0.10232123764209997, vy_cat = -0.2686138515114766, vz_cat = -0.16109455985415475)</code></pre><div class="admonition is-info" id="Which-way-is-which-2232a3e9b12a1669"><header class="admonition-header">Which way is which<a class="admonition-anchor" href="#Which-way-is-which-2232a3e9b12a1669" title="Permalink"></a></header><div class="admonition-body"><p>The Cartesian axes are <code>x</code> towards +RA (east), <code>y</code> towards +Dec (north) and <code>z</code> <em>away</em> from the observer, in AU, with velocities in AU per julian year — the same triad PlanetOrbits&#39; <code>posx</code> and <code>velx</code> report. One AU per julian year is 4.740470446 km/s, which is the only conversion above that is not a unit change.</p></div></div><h3 id="The-bodies"><a class="docs-heading-anchor" href="#The-bodies">The bodies</a><a id="The-bodies-1"></a><a class="docs-heading-anchor-permalink" href="#The-bodies" title="Permalink"></a></h3><pre><code class="language-julia hljs">A = Body(
+    name=&quot;A&quot;,
+    variables=@variables begin
+        mass ~ Uniform(0.05, 0.9)         # M⊙
+    end
+)
+
+B = Body(
+    name=&quot;B&quot;,
+    about=A,
+    variables=@variables begin
+        mass ~ Uniform(0.02, 0.6)         # M⊙
+        x  ~ Normal(x_cat,  1.0)          # AU, east
+        y  ~ Normal(y_cat,  1.0)          # AU, north
+        z  ~ Uniform(-250, 250)           # AU, away from us — nothing measures this
+        vx ~ Normal(vx_cat, 0.02)         # AU / julian year
+        vy ~ Normal(vy_cat, 0.02)
+        vz ~ Normal(vz_cat, 0.02)
+        epoch = $ref_epoch_mjd
+    end
+)</code></pre><p>The priors on <code>x</code>, <code>y</code>, <code>vx</code>, <code>vy</code> are centred on the DR3 values and are <em>far</em> wider than DR3&#39;s own errors: they say &quot;the two stars are where the catalogue says, to within an AU&quot;, not &quot;the catalogue answer is the answer&quot;. The DR4 abscissae localize them about a hundred times better than that. <code>z</code> and the two masses are the quantities nothing outside this fit constrains.</p><h3 id="Two-observations,-one-frame"><a class="docs-heading-anchor" href="#Two-observations,-one-frame">Two observations, one frame</a><a id="Two-observations,-one-frame-1"></a><a class="docs-heading-anchor-permalink" href="#Two-observations,-one-frame" title="Permalink"></a></h3><p>Each source is one <a href="../api/#Octofitter.GaiaDR4AstromObs"><code>GaiaDR4AstromObs</code></a> whose <code>target</code> is the body it <em>is</em> (<code>target=A</code>, <code>target=B</code> — not <code>Photocentre</code>, because these two stars are resolved 34″ apart and never blend into one centroid), measured against the system barycentre.</p><p>Both read the <em>same</em> reference-point motion out of the system block. That sharing is the whole point: give each observation its own <code>pmra</code>/<code>ra_offset_mas</code> and the relative proper motion — which is the entire wide-orbit signal — drops out of the likelihood.</p><pre><code class="language- hljs">frame_variables() = @variables begin
+    astrometric_jitter = 0.0
+    ra_offset_mas  = system.bary_ra_offset_mas
+    dec_offset_mas = system.bary_dec_offset_mas
+    pmra  = system.bary_pmra
+    pmdec = system.bary_pmdec
+    ref_epoch = $ref_epoch_mjd
+end
+
+obs_A = GaiaDR4AstromObs(transits_A;
+    target = A, ref = Barycentre, name = &quot;DR4_A&quot;, variables = frame_variables())
+obs_B = GaiaDR4AstromObs(transits_B;
+    target = B, ref = Barycentre, name = &quot;DR4_B&quot;, variables = frame_variables())
+
+sys = System(
+    name=&quot;GJ15&quot;,
+    bodies=[A, B],
+    observations=[obs_A, obs_B],
+    variables=@variables begin
+        plx ~ Uniform(200, 350)                # mas — one parallax for both sources
+        ra_offset_A_mas  ~ Normal(0, 500)      # star A&#39;s own position…
+        dec_offset_A_mas ~ Normal(0, 500)
+        pmra_A  ~ Normal(dr3_A.pmra, 50)       # …and star A&#39;s own proper motion
+        pmdec_A ~ Normal(dr3_A.pmdec, 50)
+        # …from which the barycentre&#39;s follows. A *deferred* line — it names a body —
+        # so it may build and solve `system_interim` to ask where A sits relative to
+        # the barycentre in this draw.
+        Δ_A = anchor_offsets(system_interim, :A, $ref_epoch_mjd)
+        bary_ra_offset_mas  = ra_offset_A_mas  - Δ_A.ra_cosdec
+        bary_dec_offset_mas = dec_offset_A_mas - Δ_A.dec
+        bary_pmra  = pmra_A  - Δ_A.pmra
+        bary_pmdec = pmdec_A - Δ_A.pmdec
+    end
+)
+model = Octofitter.LogDensityModel(sys)</code></pre><div class="admonition is-info" id="Anchor-the-frame-on-a-star,-not-on-the-barycentre-4308f86303a60776"><header class="admonition-header">Anchor the frame on a star, not on the barycentre<a class="admonition-anchor" href="#Anchor-the-frame-on-a-star,-not-on-the-barycentre-4308f86303a60776" title="Permalink"></a></header><div class="admonition-body"><p>Sampling <code>bary_ra_offset_mas</code> directly looks simpler and samples far worse. The barycentre lies a fraction <code>m_B/(m_A+m_B)</code> of the way from A to B, so its sky position moves 34 arcseconds per unit of mass fraction — while the abscissae pin each star&#39;s position to well under a tenth of a milliarcsecond. Mass ratio and frame position therefore slide together along a ridge several thousand times longer than it is wide, and NUTS spends every iteration at its maximum tree depth crawling along it.</p><p>Anchoring on star A removes the ridge outright: A&#39;s modelled position becomes <code>ra_offset_A_mas</code> whatever the mass ratio does, and the mass ratio is left to be determined by the curvature, which is what actually measures it. On this model that is the difference between a chain pinned at the tree-depth limit on 92% of its iterations, with effective sample sizes in the teens, and one that never reaches the limit at all and mixes an order of magnitude better.</p><p>This is the same reconditioning <a href="../api/#Octofitter.AnchoredFrame"><code>AnchoredFrame</code></a> performs for <a href="../api/#Octofitter.G23HObs"><code>G23HObs</code></a> — see <a href="../g23h/#g23h-anchored">Anchoring the frame to a source</a>, which explains <code>system_interim</code>, <a href="../api/#Octofitter.anchor_offsets"><code>anchor_offsets</code></a> and the Jacobian in full. Here it is written out by hand because <code>GaiaDR4AstromObs</code> keeps its reference-point motion in the observation rather than in the system&#39;s frame block.</p></div></div><h3 id="Simulate-both-sources"><a class="docs-heading-anchor" href="#Simulate-both-sources">Simulate both sources</a><a id="Simulate-both-sources-1"></a><a class="docs-heading-anchor-permalink" href="#Simulate-both-sources" title="Permalink"></a></h3><p>One call generates data for every observation in the system, so both tables come out of the same trajectory and are automatically consistent with one another.</p><pre><code class="language- hljs">mass_A_true, mass_B_true, z_true = 0.38, 0.15, 60.0
+f_B_true = mass_B_true / (mass_A_true + mass_B_true)
+
+shared_frame = (;
+    astrometric_jitter = 0.0,
+    ra_offset_mas  = f_B_true * sep_ra_mas,
+    dec_offset_mas = f_B_true * sep_dec_mas,
+    pmra  = dr3_A.pmra  + f_B_true * Δpmra,
+    pmdec = dr3_A.pmdec + f_B_true * Δpmdec,
+    ref_epoch = ref_epoch_mjd,
+)
+
+params_to_simulate = (
+    plx = plx0,
+    ra_offset_A_mas = 0.0,
+    dec_offset_A_mas = 0.0,
+    pmra_A = dr3_A.pmra,
+    pmdec_A = dr3_A.pmdec,
+    bodies = (
+        A = (; mass = mass_A_true),
+        B = (; mass = mass_B_true, x = x_cat, y = y_cat, z = z_true,
+               vx = vx_cat, vy = vy_cat, vz = vz_cat, epoch = ref_epoch_mjd),
+    ),
+    observations = (DR4_A = shared_frame, DR4_B = shared_frame),
+)
+
+Random.seed!(4)
+sim_system = Octofitter.generate_from_params(model.system, params_to_simulate; add_noise=true)
+sim_model = Octofitter.LogDensityModel(sim_system)</code></pre><div class="admonition is-warning" id="generate_from_params-reads-observations-verbatim-9395514488d148e"><header class="admonition-header">`generate_from_params` reads `observations` verbatim<a class="admonition-anchor" href="#generate_from_params-reads-observations-verbatim-9395514488d148e" title="Permalink"></a></header><div class="admonition-body"><p>It does <strong>not</strong> re-evaluate an observation&#39;s derived variables: whatever <code>params_to_simulate.observations</code> holds is what the simulated data are built from, and a missing entry silently means <em>zero</em> — here, a binary with no proper motion at all. That is why <code>shared_frame</code> above spells the frame out again instead of leaving it to the <code>bary_*</code> lines. If you would rather not repeat yourself, build the parameter tuple with <code>model.arr2nt(θ)</code> or <a href="../api/#Octofitter.drawfrompriors"><code>drawfrompriors</code></a> and edit it, which fills the derived entries for you.</p></div></div><p>The injected truth is a real orbit: masses from the two stars&#39; spectral types, the state vector from the DR3 catalogue, and a line-of-sight separation of 60 AU — which no measurement constrains, so it is a free choice. Together they give <code>a ≈ 105 AU</code> and <code>P ≈ 1500 yr</code>. The signal we are asking DR4 for is the <em>curvature</em> that this orbit imprints over 5.4 years: about 0.3 mas for star A and 0.7 mas for star B, against per-transit scatters of 0.15 and 0.21 mas.</p><h3 id="Fit"><a class="docs-heading-anchor" href="#Fit">Fit</a><a id="Fit-1"></a><a class="docs-heading-anchor-permalink" href="#Fit" title="Permalink"></a></h3><p>The starting point hands the sampler the catalogue&#39;s answer for the well-known quantities — where the stars are, how fast they move, the parallax — and leaves the masses and the depth to be found.</p><pre><code class="language- hljs">init_chain = initialize!(Random.Xoshiro(1), sim_model, (;
+    plx = plx0,
+    ra_offset_A_mas = 0.0,
+    dec_offset_A_mas = 0.0,
+    pmra_A = dr3_A.pmra,
+    pmdec_A = dr3_A.pmdec,
+    bodies = (B = (; x = x_cat, y = y_cat, vx = vx_cat, vy = vy_cat),),
+))
+chain = octofit(Random.Xoshiro(1), sim_model; adaptation=1000, iterations=1000)</code></pre><div class="admonition is-info" id="Why-plain-NUTS-is-enough-here-45e68d7aa8d9b0ab"><header class="admonition-header">Why plain NUTS is enough here<a class="admonition-anchor" href="#Why-plain-NUTS-is-enough-here-45e68d7aa8d9b0ab" title="Permalink"></a></header><div class="admonition-body"><p>The single-source fit earlier on this page needs <a href="../api/#Octofitter.octofit_pigeons"><code>octofit_pigeons</code></a> because a lone reflex wobble leaves genuinely separated solutions — the ±180° ambiguity in <code>Ω</code>, and period aliases against the scan window. A <em>resolved</em> pair has neither: we can see which star is which and where each one is, so there is one mode, and the difficulty is its shape rather than its multiplicity. Parallel tempering will sample this model too; what neither sampler rescues is the barycentric frame parametrization the note above warns about.</p></div></div><p><code>octoplot</code> finds both observations and draws a panel per source, so the residual strips are the first check that both tables are being fit and not just one:</p><pre><code class="language- hljs">octoplot(sim_model, chain)</code></pre><h3 id="What-came-out"><a class="docs-heading-anchor" href="#What-came-out">What came out</a><a id="What-came-out-1"></a><a class="docs-heading-anchor-permalink" href="#What-came-out" title="Permalink"></a></h3><pre><code class="language- hljs">f_B_post = vec(chain[:B_mass]) ./ (vec(chain[:A_mass]) .+ vec(chain[:B_mass]))
+M_tot    = vec(chain[:A_mass]) .+ vec(chain[:B_mass])
+pct(v) = (; median = median(v), lo = quantile(v, 0.16), hi = quantile(v, 0.84))
+
+(; mass_fraction = pct(f_B_post), truth_mass_fraction = f_B_true,
+   total_mass = pct(M_tot),       truth_total_mass = mass_A_true + mass_B_true,
+   parallax = pct(vec(chain[:plx])), truth_parallax = plx0,
+   z = pct(vec(chain[:B_z])),     truth_z = z_true)</code></pre><p>The mass fraction is a <strong>measurement</strong>. The prior on it — implied by the two independent mass priors, which say nothing about the ratio — is a broad hump covering 0.19–0.63 at 68%; the posterior is about four times narrower and sits on the truth. That came from nothing but the ratio of the two stars&#39; curvatures.</p><p>The total mass is not. What the accelerations actually constrain is <code>M / r³</code>, and <code>r</code> depends on the depth <code>z</code> that nothing measures — so <code>M_tot</code> and <code>z</code> trace out a single curve, whose ends are cut off by the mass priors rather than by the data.</p><pre><code class="language- hljs">mass_A_prior = rand(Uniform(0.05, 0.9), 200_000)
+mass_B_prior = rand(Uniform(0.02, 0.6), 200_000)
+f_B_prior    = mass_B_prior ./ (mass_A_prior .+ mass_B_prior)
+
+fig = Figure(size=(760, 320))
+ax1 = Axis(fig[1,1], xlabel=&quot;mass fraction  mᴮ / (mᴬ + mᴮ)&quot;, ylabel=&quot;density&quot;,
+           limits=(0, 1, nothing, nothing))
+hist!(ax1, f_B_prior, bins=60, normalization=:pdf, color=(:grey, 0.35), label=&quot;prior&quot;)
+hist!(ax1, f_B_post, bins=40, normalization=:pdf, color=(:steelblue, 0.75),
+      label=&quot;posterior&quot;)
+vlines!(ax1, [f_B_true], color=:red, linewidth=2, label=&quot;truth&quot;)
+axislegend(ax1, position=:rt, framevisible=false)
+
+ρ = hypot(x_cat, y_cat)                     # projected separation [AU]
+zs = range(-170, 170, length=200)
+ax2 = Axis(fig[1,2], xlabel=&quot;line-of-sight separation z [AU]&quot;, ylabel=&quot;total mass [M⊙]&quot;,
+           limits=(nothing, nothing, 0.2, 1.5))
+scatter!(ax2, vec(chain[:B_z]), M_tot, markersize=3, color=(:black, 0.12))
+lines!(ax2, zs, (mass_A_true + mass_B_true) .*
+       ((ρ^2 .+ zs.^2) ./ (ρ^2 + z_true^2)).^1.5, color=:red, linestyle=:dash)
+scatter!(ax2, [z_true], [mass_A_true + mass_B_true], color=:red, marker=:star5,
+         markersize=18)
+fig</code></pre><p>The dashed curve is <code>M ∝ r³</code> at the measured acceleration, drawn through the injected truth — the posterior lies along it, which is the degeneracy stated exactly. Breaking it takes information from outside these two tables: a mass–luminosity relation, an independent distance for each component, or simply a longer baseline.</p><pre><code class="language- hljs">octocorner(sim_model, chain, small=true)</code></pre><h3 id="Extending-it"><a class="docs-heading-anchor" href="#Extending-it">Extending it</a><a id="Extending-it-1"></a><a class="docs-heading-anchor-permalink" href="#Extending-it" title="Permalink"></a></h3><ul><li><p><strong>An inner companion.</strong> A planet around either star is one more <code>Body</code>. Nothing else in the model changes — its reflex enters the same abscissae, on the same trajectory:</p><pre><code class="language-julia hljs">b = Body(name=&quot;b&quot;, about=A, variables=@variables begin
+    mass ~ LogUniform(0.1mjup, 30mjup)
+    a ~ LogUniform(0.5, 10);  e ~ Uniform(0, 0.9)
+    ω ~ Uniform(0, 2pi);      i ~ Sine();  Ω ~ Uniform(0, 2pi)
+    θ ~ Uniform(0, 2pi);      epoch = $ref_epoch_mjd
+end)
+# …then `bodies=[A, B, b]`; `obs_A` still says `target=A`.</code></pre></li><li><p><strong>Blended sources.</strong> If a component is itself an unresolved pair, its source tracks the photocentre of <em>that pair only</em>: write <code>target = Photocentre(:G, (Ba, Bb))</code> and give those bodies a <code>flux_G</code>. The <a href="../api/#Octofitter.GaiaDR4AstromObs"><code>GaiaDR4AstromObs</code></a> docstring works through the 2+2 quadruple case.</p></li><li><p><strong>Hipparcos and DR3 as well as DR4.</strong> <a href="../api/#Octofitter.G23HObs"><code>G23HObs</code></a> attaches per source in exactly the same way and can share the same system and the same bodies; see <a href="../g23h/#fit-g23h">Joint Gaia-Hipparcos (G23H)</a>. Pass <code>frame_shift=false</code> to every <code>G23HObs</code> when more than one is present.</p></li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gaia-dr4-prerelease/">« Gaia DR4</a><a class="docs-footer-nextpage" href="../g23h-example/">G23H Full Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 29 August 2026 02:04">Saturday 29 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
