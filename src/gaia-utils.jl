@@ -177,6 +177,83 @@ function geocentre_position_query(epoch_MJD::Number)
 end
 
 # ──────────────────────────────────────────────────────────────────────
+# The annual parallax ellipse, as a shape
+# ──────────────────────────────────────────────────────────────────────
+
+"""
+Mean obliquity of the ecliptic at J2000.0 in degrees (IAU 2006: 23° 26′
+21.406″). Used only by [`parallax_ellipse`](@ref) — every likelihood takes
+the Earth's orientation from the DE440 ephemeris instead, so this constant is
+never on a modelling path.
+"""
+const obliquity_J2000_deg = 23 + 26 / 60 + 21.406 / 3600
+
+"""
+    parallax_ellipse(ra, dec; n=181)
+
+The annual parallax ellipse for a source at (`ra`, `dec`) in **degrees**,
+returned as `(; raoff, decoff)`: two length-`n` vectors tracing one closed
+revolution in units of the parallax. Multiply by a parallax in mas to get an
+offset in mas.
+
+The curve is the locus of the parallax factors the Gaia and Hipparcos
+likelihoods use,
+
+    Δα✶ = ϖ (X sin α − Y cos α)
+    Δδ  = ϖ (X cos α sin δ + Y sin α sin δ − Z cos δ)
+
+with the Earth's barycentric position taken as a **circular** unit orbit in
+the ecliptic, `X = cos λ`, `Y = sin λ cos ε`, `Z = sin λ sin ε`, swept over
+ecliptic longitude λ. That makes the result exactly an ellipse: semi-major
+axis **exactly 1**, semi-minor axis `|sin β|` at ecliptic latitude β, major
+axis along the local ecliptic-longitude direction. Because the semi-major
+axis is exactly 1, a caller that wants an ellipse of a given size can just
+multiply — there is nothing to renormalize.
+
+!!! warning "Not for modelling"
+    The circular orbit here is the point, not an approximation being
+    tolerated. This function gives the *shape and orientation* of the
+    ellipse, for annotating a figure the way a radio map is annotated with
+    its beam. Earth's eccentricity (0.0167) distorts the true locus at the
+    percent level — invisible at annotation size, and not good enough to fit
+    with. Anything that needs the parallax offset *at a given epoch* — every
+    likelihood, and [`skytrackplot`](@ref) — must go through
+    [`geocentre_position_query`](@ref) and the real ephemeris.
+
+    Keeping the decoration off that path is deliberate: [`gaiastarplot`](@ref)
+    draws this by default, and it must not drag the DE440 data dependency in
+    behind a decoration.
+
+See also [`gaiastarplot`](@ref), which draws it in the corner of the panel.
+"""
+function parallax_ellipse(ra::Real, dec::Real; n::Integer=181)
+    n >= 3 || throw(ArgumentError("parallax_ellipse needs n ≥ 3 points, got $n"))
+    sinα, cosα = sincosd(Float64(ra))
+    sinδ, cosδ = sincosd(Float64(dec))
+    sinε, cosε = sincosd(obliquity_J2000_deg)
+    # Substituting the circular orbit into the two parallax factors leaves a
+    # pure sinusoid in λ for each: Δα✶ = A cos λ + B sin λ, Δδ = C cos λ +
+    # D sin λ. The matrix [A B; C D] maps the unit circle onto the ellipse,
+    # so its singular values are the semi-axes — 1 and |sin β|, since
+    # |AD − BC| = |cos ε sin δ − sin ε sin α cos δ| = |sin β|.
+    A = sinα
+    B = -cosε * cosα
+    C = cosα * sinδ
+    D = cosε * sinα * sinδ - sinε * cosδ
+    raoff = Vector{Float64}(undef, n)
+    decoff = Vector{Float64}(undef, n)
+    # `range(0, 2π, length=n)` repeats the start point at the end, which is
+    # what closes the polygon for a `lines!`/`poly!` caller.
+    for (i, λ) in enumerate(range(0, 2π, length=n))
+        s, c = sincos(λ)
+        raoff[i] = A * c + B * s
+        decoff[i] = C * c + D * s
+    end
+    return (; raoff, decoff)
+end
+export parallax_ellipse
+
+# ──────────────────────────────────────────────────────────────────────
 # Gaia archive queries
 # ──────────────────────────────────────────────────────────────────────
 

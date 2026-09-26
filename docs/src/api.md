@@ -192,6 +192,8 @@ nss_to_model_chain
 g23h_scan_uncertainty
 gaia_dr4_transit_template
 Octofitter.GOST_forecast
+parallax_ellipse
+Octofitter.geocentre_position_query
 mjd
 years2mjd
 mjd2date
