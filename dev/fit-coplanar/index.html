@@ -120,7 +120,7 @@ fig</code></pre><img src="e0ff23d1.png" alt="Example block output"/><p>Initializ
         c = (; mass = 5.14mjup),
     )
 ))
-octoplot(model, init_chain)</code></pre><img src="e0ae0a7f.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">results, pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
+octoplot(model, init_chain)</code></pre><img src="bb086bc7.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">results, pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OctofitterPigeonsExt ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt.jl:192</span>
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
@@ -131,23 +131,23 @@ octoplot(model, init_chain)</code></pre><img src="e0ae0a7f.png" alt="Example blo
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.18       1.87       1.67   1.06e+07  -1.03e+07          0      0.837          1          1
-        4          0       5.75       4.12      0.242   1.93e+06  -1.27e+06          0      0.681          1          1
-        8          0       5.41       5.71      0.487   3.92e+06  -4.19e+05          0      0.641          1          1
-       16          0       6.92       6.65      0.949   7.64e+06  -1.45e+05          0      0.562          1          1
-       32          0       6.61       7.68       1.87   1.53e+07  -2.05e+03          0      0.539          1          1
-       64          0       7.44       6.36       4.37   9.74e+07       -249          0      0.555          1          1
-      128          0       8.54       6.64       7.52   1.76e+08       -208          0      0.511          1          1
-      256          1       8.63       6.81       14.8   3.53e+08       -206   6.12e-62      0.502          1          1
-      512          7       9.18       7.92       29.4   7.01e+08       -204   5.15e-25      0.448          1          1
- 1.02e+03         11       9.56       8.52       58.8   1.38e+09       -205   3.13e-20      0.417          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="c1b09453.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="e0e8dc43.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
+        2          0       3.63       2.34       1.86   8.51e+06  -8.25e+06          0      0.807          1          1
+        4          0       5.48       6.67       0.24   1.74e+06  -5.03e+04          0      0.608          1          1
+        8          0       7.46       8.64      0.475   3.44e+06   -8.6e+03          0      0.481          1          1
+       16          0       8.21       7.86      0.934    6.7e+06       -224          0      0.482          1          1
+       32          0       8.82       8.88       1.81   1.28e+07       -298          0      0.429          1          1
+       64          0       8.87       6.06       4.48   9.19e+07       -221   2.32e-47      0.518          1          1
+      128          1       9.64       6.09       7.11   1.74e+08       -208   2.66e-28      0.493          1          1
+      256          1       9.96       7.36       14.4   3.45e+08       -207   1.65e-11      0.441          1          1
+      512          6       10.2       8.13         29    6.8e+08       -204    0.00244      0.409          1          1
+ 1.02e+03         10       10.6       8.39       57.8   1.35e+09       -203    0.00547      0.388          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="62030dc7.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="6e49e702.png" alt="Example block output"/><p>Now examine the period ratio:</p><pre><code class="language-julia hljs">hist(
     results[:b_P][:] ./ results[:c_P][:],
     axis=(;
         xlabel=&quot;period ratio&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="4911fc64.png" alt="Example block output"/><h2 id="Approximately-Co-Planar-Model"><a class="docs-heading-anchor" href="#Approximately-Co-Planar-Model">Approximately Co-Planar Model</a><a id="Approximately-Co-Planar-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Approximately-Co-Planar-Model" title="Permalink"></a></h2><p>We now set up two planets with their own separate <code>i</code> and <code>Ω</code> variables, calculate the mutual inclination, and add a prior that this mutual inclination is <span>$0 \pm 10 \degree$</span>. An oftern overlooked point is that that a half normal distribution on mutual inclination isn&#39;t going to actually peak at 0, more like <span>$10 \degree$</span> because of how the priors on each planet&#39;s orbital plane interact. </p><p>Any <code>expression ~ distribution</code> line in a <code>@variables</code> block is a prior term, so the mutual-inclination constraint is written directly.</p><pre><code class="language-julia hljs">planet_c = Body(
+)</code></pre><img src="82aebcd4.png" alt="Example block output"/><h2 id="Approximately-Co-Planar-Model"><a class="docs-heading-anchor" href="#Approximately-Co-Planar-Model">Approximately Co-Planar Model</a><a id="Approximately-Co-Planar-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Approximately-Co-Planar-Model" title="Permalink"></a></h2><p>We now set up two planets with their own separate <code>i</code> and <code>Ω</code> variables, calculate the mutual inclination, and add a prior that this mutual inclination is <span>$0 \pm 10 \degree$</span>. An oftern overlooked point is that that a half normal distribution on mutual inclination isn&#39;t going to actually peak at 0, more like <span>$10 \degree$</span> because of how the priors on each planet&#39;s orbital plane interact. </p><p>Any <code>expression ~ distribution</code> line in a <code>@variables</code> block is a prior term, so the mutual-inclination constraint is written directly.</p><pre><code class="language-julia hljs">planet_c = Body(
     name=&quot;c&quot;,
     about=A,
     variables=@variables begin
@@ -218,7 +218,7 @@ model = Octofitter.LogDensityModel(sys)</code></pre><pre class="documenter-examp
         c = (; mass = 5.14mjup),
     )
 ))
-octoplot(model, init_chain)</code></pre><img src="572a6595.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">results, pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
+octoplot(model, init_chain)</code></pre><img src="d510b4a5.png" alt="Example block output"/><p>Now sample from the model using Pigeons parallel tempering:</p><pre><code class="language-julia hljs">results, pt = octofit_pigeons(model, n_rounds=10);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>This model has priors that cannot be sampled IID.
 <span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ OctofitterPigeonsExt ~/octo-maintenance/runner/actions-runner/_work/Octofitter.jl/Octofitter.jl/ext/OctofitterPigeonsExt.jl:192</span>
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Sampler running with multiple threads     : true
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Likelihood evaluated with multiple threads: false
@@ -229,25 +229,25 @@ octoplot(model, init_chain)</code></pre><img src="572a6595.png" alt="Example blo
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       3.78       2.51       2.12   1.06e+07  -2.06e+07          0      0.797          1          1
-        4          0       6.27       6.44      0.275   1.96e+06   -4.5e+04          0       0.59          1          1
-        8          0       6.67        7.8      0.544   3.86e+06  -6.54e+03          0      0.533          1          1
-       16          0       8.12       8.75       1.09   7.75e+06  -1.04e+03          0      0.456          1          1
-       32          0       8.89       8.96       2.15   1.54e+07       -525  2.99e-291      0.424          1          1
-       64          0       9.82       6.85       5.23   1.05e+08       -235    3.3e-27      0.462          1          1
-      128          2       10.6       6.62       8.75   1.99e+08       -211   3.78e-06      0.444          1          1
-      256          7       10.6       6.98       16.9   3.95e+08       -211    0.00332      0.433          1          1
-      512          4       10.7        8.5       33.8   7.84e+08       -208    0.00752       0.38          1          1
- 1.02e+03          9       11.1       8.68       67.4   1.57e+09       -206     0.0197      0.361          1          1
-────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="09080059.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="e349e36e.png" alt="Example block output"/><p>Now examine the mutual inclination:</p><pre><code class="language-julia hljs">hist(
+        2          0       2.98       3.03       2.36   8.49e+06  -1.62e+05          0      0.806          1          1
+        4          0       5.33       6.18      0.266   1.73e+06     -1e+05          0      0.629          1          1
+        8          0       5.52       8.82      0.533   3.46e+06  -1.12e+03          0      0.537          1          1
+       16          0       6.57       8.66       1.08   6.62e+06       -535          0      0.509          1          1
+       32          0       8.01       8.99       2.12   1.31e+07       -267          0      0.451          1          1
+       64          0       7.69       6.86       4.98   9.95e+07       -211   7.45e-30      0.531          1          1
+      128          0       8.43       7.99       8.16   1.88e+08       -211  5.19e-149       0.47          1          1
+      256          0       9.17       8.62         17   3.78e+08       -209          0      0.426          1          1
+      512          3       9.37       9.07       32.9   7.57e+08       -207   6.74e-09      0.405          1          1
+ 1.02e+03         10       9.71       9.07       65.1    1.5e+09       -208   2.59e-06      0.394          1          1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plots the orbits:</p><pre><code class="language-julia hljs">octoplot(model, results)</code></pre><img src="b9aee564.png" alt="Example block output"/><p>Corner plot:</p><pre><code class="language-julia hljs">octocorner(model, results, small=true)</code></pre><img src="345e26f4.png" alt="Example block output"/><p>Now examine the mutual inclination:</p><pre><code class="language-julia hljs">hist(
     rad2deg.( results[:mut_inc_b_c][:] ),
     axis=(;
         xlabel=&quot;mutual inclination [deg]&quot;,
         ylabel=&quot;counts&quot;,
     )
-)</code></pre><img src="6e1154ba.png" alt="Example block output"/><h2 id="Dynamical-stability-priors"><a class="docs-heading-anchor" href="#Dynamical-stability-priors">Dynamical stability priors</a><a id="Dynamical-stability-priors-1"></a><a class="docs-heading-anchor-permalink" href="#Dynamical-stability-priors" title="Permalink"></a></h2><p>For a multi-planet model you will often want to add one or more of the dynamical priors:</p><pre><code class="language-julia hljs">observations = [
+)</code></pre><img src="54a28dd9.png" alt="Example block output"/><h2 id="Dynamical-stability-priors"><a class="docs-heading-anchor" href="#Dynamical-stability-priors">Dynamical stability priors</a><a id="Dynamical-stability-priors-1"></a><a class="docs-heading-anchor-permalink" href="#Dynamical-stability-priors" title="Permalink"></a></h2><p>For a multi-planet model you will often want to add one or more of the dynamical priors:</p><pre><code class="language-julia hljs">observations = [
     astrom_b, astrom_c,
     OrbitOrderPrior(planet_c, planet_b),                     # keeps c interior to b
     NonCrossingPrior(bodies=(planet_b, planet_c)),           # apsides may not cross
     HillStabilityPrior(bodies=(planet_b, planet_c)),         # very basic stability constraint
-]</code></pre><p><a href="../api/#Octofitter.HillStabilityPrior"><code>HillStabilityPrior</code></a>&#39;s docstring gives the exact Gladman criterion and the definition of <code>M★</code> it uses.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 8 September 2026 23:48">Tuesday 8 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+]</code></pre><p><a href="../api/#Octofitter.HillStabilityPrior"><code>HillStabilityPrior</code></a>&#39;s docstring gives the exact Gladman criterion and the definition of <code>M★</code> it uses.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rel-astrom-obs/">« Observable Priors</a><a class="docs-footer-nextpage" href="../thiele-innes/">Thiele-Innes Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 22 October 2026 21:11">Thursday 22 October 2026</span>. Using Julia version 1.13.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
