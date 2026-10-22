@@ -108,6 +108,13 @@ jobs:
       # runtests.jl directly sees them. `Pkg.test()` would rebuild the
       # environment from `[targets] test` and drop Pigeons again.
       - name: Install with Pigeons
+        # Julia 1.13.2's auto-precompile throws `Unknown package: Roots` when an
+        # add changes the version of an indirect dependency (Pkg.jl#4866, fixed
+        # upstream, unreleased); adding Pigeons downgrades Roots 3 -> 2. Skip the
+        # auto-precompile here; the test step precompiles on `using`. Drop this
+        # once a release with the fix is what `version: '1'` resolves to.
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
         run: |
           julia --project=. --color=yes -e '
             using Pkg
@@ -143,6 +150,9 @@ jobs:
       - uses: julia-actions/cache@v3
       - name: Install with Pigeons
         shell: bash
+        # See the ubuntu job: Pkg.jl#4866 on Julia 1.13.2.
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
         run: |
           julia --project=. --color=yes -e '
             using Pkg
