@@ -399,7 +399,9 @@ end
 
 # The O'Neil et al. 2019 Jacobian, written from the paper's expression rather
 # than from the port: mean/eccentric anomalies from an independent Newton solve
-# of Kepler's equation, and the mean anomaly built as 2π(t − tp)/P.
+# of Kepler's equation, and the mean anomaly built as 2π(t − tp)/P. Unlike the
+# other terms in this file it deliberately differs from v1, which added
+# `2log(jac)`; the prior is ∝ |J| (eq. 36a).
 function v1_oneil_term(P_days, e, tp, epochs)
     jac = 0.0
     for t in epochs
@@ -416,7 +418,27 @@ function v1_oneil_term(P_days, e, tp, epochs)
         jac += abs(3M * (e + cos(E)) + 2 * (-2 + e^2 + e * cos(E)) * sin(E))
     end
     jac *= cbrt(P_days / 365.25) / sqrt(1 - e^2)
-    return 2log(jac)
+    return log(jac)
+end
+
+# |∂(X, Y)/∂(P, e)| of the in-plane position at epoch `t`, holding `tp` fixed,
+# by central differences — up to a constant, since a ∝ P^(2/3) is used without
+# the mass. This is the Jacobian from first principles, not from the paper's
+# closed form.
+function inplane_area_jacobian(P_days, e, tp, t)
+    function xy(P, e)
+        MA = rem2pi(2π * (t - tp) / P, RoundNearest)
+        E = MA
+        for _ in 1:100
+            E -= (E - e * sin(E) - MA) / (1 - e * cos(E))
+        end
+        a = cbrt(P^2)
+        return [a * (cos(E) - e), a * sqrt(1 - e^2) * sin(E)]
+    end
+    hP, he = 1e-6P_days, 1e-6
+    dP = (xy(P_days + hP, e) - xy(P_days - hP, e)) / 2hP
+    de = (xy(P_days, e + he) - xy(P_days, e - he)) / 2he
+    return abs(dP[1] * de[2] - dP[2] * de[1])
 end
 
 @testset "ObsPriorONeil2019: interface" begin
@@ -471,6 +493,26 @@ end
     @test bad.orbit === (Octofitter.BodyRefSpec{:A}(),)
     @test_throws r"not placed by any orbit" Octofitter.ln_like(
         bad, pp_ctx(pp_system(obs=[bad]), bad))
+end
+
+@testset "ObsPriorONeil2019: the prior is |J|, not a power of it" begin
+    # A prior uniform in the observable at one epoch is p(P, e) ∝ |J|. Between
+    # two orbits the wrapper's term must then change by exactly log|J|: v1's
+    # 2log|J| changes by twice that, and E-Fit's −2log|J| (a χ² term) flips it.
+    ep = [54600.0]
+    astrom = RelAstromObs((epoch=ep, ra=[100.0], dec=[50.0],
+            σ_ra=[1.0], σ_dec=[1.0]); target=:b, ref=:A, name="astrom")
+    prior = ObsPriorONeil2019(astrom)
+    terms = map(((3.0, 0.15), (7.0, 0.6))) do (a, e)
+        sysw = pp_system(obs=[astrom]; a_b=a, e_b=e)
+        sysp = pp_system(obs=[prior]; a_b=a, e_b=e)
+        posys = Octofitter.make_ln_like(sysw).build(Octofitter.make_arr2nt(sysw)(Float64[]))
+        P_days = PlanetOrbits.period(posys, 1)
+        (pp_lnlike(sysp) - pp_lnlike(sysw),
+         log(inplane_area_jacobian(P_days, e, 55000.0, only(ep))))
+    end
+    @test terms[1][1] - terms[2][1] ≈ terms[1][2] - terms[2][2] atol = 1e-5
+    @test !isapprox(terms[1][2], terms[2][2]; atol=0.1)  # the check has teeth
 end
 
 @testset "ObsPriorONeil2019 is finite and differentiable" begin

@@ -620,6 +620,10 @@ now covers RV data, not just astrometry.
   correlated astrometry was drawn from the wrong distribution *and* was fitted
   with a diagonal covariance. Simulated data, posterior-predictive checks, SBC
   and completeness on correlated astrometry all change.
+* **`ObsPriorONeil2019` now applies the paper's prior, ∝ |J|.** v8 added
+  `2log|J|`, i.e. a prior ∝ |J|². The factor of 2 came from a χ²-based reference
+  implementation (χ² = −2 ln L), where `−2log|J|` means `+log|J|` in the log
+  density. Any fit made with the v8 observable-based prior changes.
 * **`generate_from_params` on an `ObsPriorONeil2019` returns the wrapper**, not
   the bare inner likelihood. Unwrapping produced a different model — no Jacobian,
   and `obspri_<name>` renamed to `<name>` — so a chain fitted to the replicate
