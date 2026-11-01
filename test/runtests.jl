@@ -8,6 +8,16 @@ using DelimitedFiles
 using FiniteDiff
 using PlanetOrbits
 
+# NaN-fill every trajectory column at construction, so a likelihood that reads
+# solver storage nothing wrote fails loudly instead of depending on whatever
+# the Bumper arena last held (#162). Guarded: the switch arrived in
+# PlanetOrbits 1.0.1.
+if isdefined(PlanetOrbits, :_POISON_TRAJECTORIES)
+    PlanetOrbits._POISON_TRAJECTORIES[] = true
+else
+    @warn "PlanetOrbits $(pkgversion(PlanetOrbits)) has no _POISON_TRAJECTORIES; uninitialised-read checks are off"
+end
+
 # `test/legacy/` holds the v1 test suite, which exercises the model surface
 # this branch replaced. It is kept beside the v1 sources in `src/legacy/` so
 # each likelihood's port can bring its tests with it.
