@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Sampler · Octofitter.jl</title><meta name="title" content="Sampler · Octofitter.jl"/><meta property="og:title" content="Sampler · Octofitter.jl"/><meta property="twitter:title" content="Sampler · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../quick-start/">Quick Start</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../hipparcos/">Hipparcos IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../python/">Using Python</a></li><li><a class="tocitem" href="../chains/">Chains</a></li><li><a class="tocitem" href="../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../loading-saving/">Loading and Saving Data</a></li><li class="is-active"><a class="tocitem" href>Sampler</a><ul class="internal"><li><a class="tocitem" href="#Workflow"><span>Workflow</span></a></li><li><a class="tocitem" href="#Pathfinder"><span>Pathfinder</span></a></li><li><a class="tocitem" href="#Hamiltonian-Monte-Carlo-(NUTS)"><span>Hamiltonian Monte Carlo (NUTS)</span></a></li><li><a class="tocitem" href="#Pigeons-Non-Reversible-Parallel-Tempering"><span>Pigeons Non-Reversible Parallel Tempering</span></a></li><li><a class="tocitem" href="#Distributed-Sampling"><span>Distributed Sampling</span></a></li><li><a class="tocitem" href="#MPI-Launcher-Script"><span>MPI Launcher Script</span></a></li><li><a class="tocitem" href="#Launcher-Script"><span>Launcher Script</span></a></li><li><a class="tocitem" href="#Troubleshooting"><span>Troubleshooting</span></a></li><li><a class="tocitem" href="#Examine-Results"><span>Examine Results</span></a></li><li><a class="tocitem" href="#Advanced-Usage:-Additional-Samplers"><span>Advanced Usage: Additional Samplers</span></a></li></ul></li><li><a class="tocitem" href="../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../priors/">Priors</a></li><li><a class="tocitem" href="../derived/">Derived Variables</a></li><li><a class="tocitem" href="../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../api/">Full API Documentation</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Documentation</a></li><li class="is-active"><a href>Sampler</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Sampler</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/samplers.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="samplers"><a class="docs-heading-anchor" href="#samplers">Samplers</a><a id="samplers-1"></a><a class="docs-heading-anchor-permalink" href="#samplers" title="Permalink"></a></h1><p>We recommend using one of the following MCMC samplers:</p><ul><li>No U-turn Hamiltonian Monte Carlo (via <code>octofit</code>)</li><li>Non-reversible parallel tempered Monte Carlo  (via <code>octofit_pigeons</code>)</li></ul><p>Many additional samplers can be used through the LogDensityProblems.jl interface, but they are not tested.</p><h2 id="Workflow"><a class="docs-heading-anchor" href="#Workflow">Workflow</a><a id="Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Workflow" title="Permalink"></a></h2><p>When you&#39;re testing a new model and/or data, we recommend you test it quickly with Pathfinder (<code>chains = octoquick(model)</code>). This will return a rough approximation of the posterior and will pick up if it contains multiple modes. </p><p>If the posterior is unimodal (even if it has a complicated shape), go ahead and use AdvancedHMC (<code>chains = octofit(model)</code>). This uses a single computer core and is in many cases very efficient.</p><p>If the posterior is multimodal, and the modes are quite separated, then use Pigeons (<code>chains, pt = octofit_pigeons(model, n_rounds=12)</code>).</p><p>Read mode about these samplers below.</p><h2 id="Pathfinder"><a class="docs-heading-anchor" href="#Pathfinder">Pathfinder</a><a id="Pathfinder-1"></a><a class="docs-heading-anchor-permalink" href="#Pathfinder" title="Permalink"></a></h2><p>You can use the function <code>octoquick</code> to generate a very rough approximation of the posterior. This uses the multi-pathfinder approximate inference algorithm.</p><p>The useage of <code>octoquick</code> is similar to <code>octofit</code>:</p><pre><code class="language-julia hljs">chain = octoquick(model)</code></pre><p>These results are not statistically meaningful, but should give you some very rough idea of how the model fits the data in just a few seconds.</p><h2 id="Hamiltonian-Monte-Carlo-(NUTS)"><a class="docs-heading-anchor" href="#Hamiltonian-Monte-Carlo-(NUTS)">Hamiltonian Monte Carlo (NUTS)</a><a id="Hamiltonian-Monte-Carlo-(NUTS)-1"></a><a class="docs-heading-anchor-permalink" href="#Hamiltonian-Monte-Carlo-(NUTS)" title="Permalink"></a></h2><p>The recommended choice for almost all problems is Hamiltonian Monte Carlo. It can be run using the <code>octofit</code> function:</p><pre><code class="language-julia hljs">chain = octofit(model)</code></pre><div class="admonition is-info" id="Note-8926037ebf0d295d"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-8926037ebf0d295d" title="Permalink"></a></header><div class="admonition-body"><p>Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available. <code>octofit</code> is single-threaded, but may calculate the likelihood of your model in parallel if you have many data points (100s or more).</p></div></div><p>This sampling  method makes use of derivative information, and is much more efficient. This package by default uses the No U-Turn sampler, as implemented in AdvancedHMC.jl.</p><p>Derviatives for a complex model are usualy tedious to code, but Octofitter uses ForwardDiff.jl to generate them automatically.</p><p>When using HMC, only a few chains are necessary. This is in contrast to Affine Invariant MCMC based packages where hundreds or thousands of walkers are required. One chain should be enough to cover the whole posterior, but you can run a few different chains to make sure each has converged to the same distribution.</p><p>Similarily, fewer samples are required. This is because unlike Affine Invariant MCMC, HMC produces samples that are much less correlated after each step (i.e. the autocorrelation time is much shorter).</p><p><code>octofit</code> will internally use Pathfinder to warm up the sampler, reducing convergence times signficantly. </p><p>The method signature of <code>octofit</code> is as follows:</p><pre><code class="language-julia hljs">octofit(
+    [rng::Random.AbstractRNG],
+    model::Octofitter.LogDensityModel,
+    target_accept::Number=0.8,
+    adaptation=1000,
+    iterations=1000,
+    drop_warmup=true,
+    max_depth=12,
+    verbosity=2,
+)</code></pre><p>The only required arguments are <code>model</code>, <code>adaptation</code>, and <code>iterations</code>. The two positional arguments are <code>model</code>, the model you wish to sample; and <code>target_accept</code>, the acceptance rate that should be targeted during windowed adaptation. During this time, the step size and mass matrix will be adapted (see AdvancedHMC.jl for more information). The number of steps taken during adaptation is controlled by <code>adaptation</code>. You can prevent these samples from being dropped by pasing <code>include_adaptation=false</code>. The total number of posterior samples produced are given by <code>iterations</code>. These include the adaptation steps that may be discarded. <code>max_depth</code> controls the maximum tree depth of the sampler. </p><h2 id="Pigeons-Non-Reversible-Parallel-Tempering"><a class="docs-heading-anchor" href="#Pigeons-Non-Reversible-Parallel-Tempering">Pigeons Non-Reversible Parallel Tempering</a><a id="Pigeons-Non-Reversible-Parallel-Tempering-1"></a><a class="docs-heading-anchor-permalink" href="#Pigeons-Non-Reversible-Parallel-Tempering" title="Permalink"></a></h2><p>Pigeons implements non-reversible parallel tempering. You can read more about it here: <a href="https://pigeons.run/stable/">http://pigeons.run</a>. Pigeons is slower if you only run it on a single (or a few) computer cores, but can scale up very well over many cores or compute nodes. It can reliably sample from multimodal posteriors.</p><div class="admonition is-info" id="Note-d580e91f1d7518fc"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-d580e91f1d7518fc" title="Permalink"></a></header><div class="admonition-body"></div></div><p>Pigeons must be installed as a separate package install it, run      <code>pkg&gt; add Pigeons</code></p><p>Pigeons can be run locally with one or more Julia threads.</p><div class="admonition is-info" id="Note-2cc875ce352ec5d3"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-2cc875ce352ec5d3" title="Permalink"></a></header><div class="admonition-body"><p>Start julia with <code>julia --threads=auto</code> to make sure you have multiple threads available for sampling.</p></div></div><p>You can get started with Pigeons by running:</p><pre><code class="language-julia hljs">using Pigeons
+model = Octofitter.LogDensityModel(System)
+chain, pt = octofit_pigeons(model)</code></pre><p>The method signature of <code>octofit_pigeons</code> is as follows:</p><pre><code class="language-julia hljs">chain, pt = octofit_pigeons(
+    target::Octofitter.LogDensityModel;
+    n_rounds::Int,
+    pigeons_kw... # forwarded to Pigeons.Inputs
+)</code></pre><p>By default, this will use:</p><ul><li>16 chains between the posterior and the prior</li><li>16 chains between the posterior and a variational reference</li><li>the SliceSampler local explorer</li></ul><p>The number of chains should ideally be set to twice the value of <code>Λ</code> in the resulting table. If you notice <code>Λ</code> is not approximately 8, you should adjust <code>n_chains</code> and <code>n_chains_variational</code> to be approximately twice the value of <code>Λ</code> and <code>Λ_var</code> respectively.</p><p>A nice feature of Pigeons is that you can resume sampler for additional rounds without having to start over:</p><pre><code class="language-julia hljs">pt = increment_n_rounds!(pt, 1)
+chain, pt = octofit_pigeons(pt)</code></pre><h2 id="Distributed-Sampling"><a class="docs-heading-anchor" href="#Distributed-Sampling">Distributed Sampling</a><a id="Distributed-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Distributed-Sampling" title="Permalink"></a></h2><p>This guide shows how you can sample from Octofitter models using a cluster. If you just want to sample across multiple cores on the same computer, start julia with multiple threads (<code>julia --threads=auto</code>) and use <code>octofit_pigeons</code>.</p><p>If your problem is challenging enough to benefit from parallel sampling across multiple nodes in a cluster, you might consider using Pigeons with MPI by following this guide. </p><h2 id="MPI-Launcher-Script"><a class="docs-heading-anchor" href="#MPI-Launcher-Script">MPI Launcher Script</a><a id="MPI-Launcher-Script-1"></a><a class="docs-heading-anchor-permalink" href="#MPI-Launcher-Script" title="Permalink"></a></h2><p>We will use a Julia script to submit the batch job to the cluster. The script will define the model and start the sampling process. The sampler can then run in the background, and you can periodically load the results in from the checkpoint file to examine them after each round of sampling.</p><p>Here is an example:</p><pre><code class="language-julia hljs">using Octofitter
+using OctofitterRadialVelocity
+using PlanetOrbits
+using CairoMakie
+using PairPlots
+using DataFrames
+using Distributions
+
+# Specify your data as usual
+astrom_like = PlanetRelAstromLikelihood(
+    # Your data here:
+    (epoch = 50000, ra = -505.7637580573554, dec = -66.92982418533026, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50120, ra = -502.570356287689, dec = -37.47217527025044, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50240, ra = -498.2089148883798, dec = -7.927548139010479, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50360, ra = -492.67768482682357, dec = 21.63557115669823, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50480, ra = -485.9770335870402, dec = 51.147204404903704, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50600, ra = -478.1095526888573, dec = 80.53589069730698, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50720, ra = -469.0801731788123, dec = 109.72870493064629, σ_ra = 10, σ_dec = 10, cor=0),
+    (epoch = 50840, ra = -458.89628893460525, dec = 138.65128697876773, σ_ra = 10, σ_dec = 10, cor=0),
+)
+
+# build your model as usual
+@planet b Visual{KepOrbit} begin
+    a ~ Uniform(0, 100) # AU
+    e ~ Uniform(0.0, 0.99)
+    i ~ Sine() # radians
+    ω ~ UniformCircular()
+    Ω ~ UniformCircular()
+    θ ~ UniformCircular()
+    tp = θ_at_epoch_to_tperi(system,b,50000) # use MJD epoch of your data here!!
+end astrom_like
+@system Tutoria begin # replace Tutoria with the name of your planetary system
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+end b
+model = Octofitter.LogDensityModel(Tutoria)</code></pre><h2 id="Launcher-Script"><a class="docs-heading-anchor" href="#Launcher-Script">Launcher Script</a><a id="Launcher-Script-1"></a><a class="docs-heading-anchor-permalink" href="#Launcher-Script" title="Permalink"></a></h2><p>Use this script to launch your MPI job.</p><pre><code class="language-julia hljs">include(&quot;distributed-model.jl&quot;)
+pt = pigeons(
+    target = Pigeons.LazyTarget(MyLazyTarget()),
+    record = [traces; round_trip; record_default()],
+    on = Pigeons.MPIProcesses(
+        n_mpi_processes = n_chains,
+        n_threads = 1,
+        dependencies = [abspath(&quot;distributed-model.jl&quot;)]
+    ),
+    # Pass additional flags to the HPC scheduler here
+    # See here for more details: https://pigeons.run/stable/reference/#Pigeons.MPIProcesses
+    # add_to_submission = [&quot;#PBS -A my_user_allocation_code&quot;] # pbs
+    add_to_submission = [ # slurm
+        &quot;#SBATCH --account=my_user_name&quot;,
+        &quot;#SBATCH --time=24:00:00&quot;,
+    ],
+     # HPC modules to load on each worker
+    environment_modules: [&quot;StdEnv/2023&quot;, &quot;intel&quot;, &quot;openmpi&quot;, &quot;julia/1.10&quot;, &quot;hdf5&quot;]
+)</code></pre><div class="admonition is-info" id="Info-b2ef0c1bfd5524aa"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-b2ef0c1bfd5524aa" title="Permalink"></a></header><div class="admonition-body"><p>Don&#39;t submit this script to your cluster. Run it on a login node and it will submit the job for you.</p></div></div><h2 id="Troubleshooting"><a class="docs-heading-anchor" href="#Troubleshooting">Troubleshooting</a><a id="Troubleshooting-1"></a><a class="docs-heading-anchor-permalink" href="#Troubleshooting" title="Permalink"></a></h2><p>If you run into library issues with MPI and/or HDF5, you may need to tell Julia to use the system provided versions. </p><p>Here is an example that works on AllianceCanada clusters, and may be adaptable to other slurm-based systems:</p><pre><code class="language-julia hljs">using Preferences, HDF5
+
+set_preferences!(
+    HDF5,
+    &quot;libhdf5&quot; =&gt; ENV[&quot;EBROOTHDF5&quot;]*&quot;/lib/libhdf5_hl.so&quot;,
+    &quot;libhdf5_hl&quot; =&gt; ENV[&quot;EBROOTHDF5&quot;]*&quot;/lib/libhdf5_hl.so&quot;,
+    force = true
+)
+
+modelfname = ARGS[1]
+n_proc = parse(Int, ARGS[2])
+
+Pigeons.setup_mpi(
+    submission_system = :slurm,
+    environment_modules = [&quot;StdEnv/2023&quot;, &quot;intel&quot;, &quot;openmpi&quot;, &quot;julia/1.10&quot;, &quot;hdf5&quot;],
+    library_name = ENV[&quot;EBROOTOPENMPI&quot;]*&quot;/lib/libmpi&quot;,
+    add_to_submission = [
+        &quot;#SBATCH --time=24:00:00&quot;,
+        &quot;#SBATCH --account=def-account-name&quot;,
+        &quot;#SBATCH --mem-per-cpu=8g&quot;
+    ]
+)
+println(&quot;Setup MPIProcesses&quot;)</code></pre><h2 id="Examine-Results"><a class="docs-heading-anchor" href="#Examine-Results">Examine Results</a><a id="Examine-Results-1"></a><a class="docs-heading-anchor-permalink" href="#Examine-Results" title="Permalink"></a></h2><p>After one or more sampling rounds have completed, you can run this command to load the results so far for analysis.</p><pre><code class="language-julia hljs">
+# If still in current session, just pass the `pt` object:
+results = Chains(model, pt)
+
+# Else, if the sampling has been running in the background, run:
+pt = PT(mpi_run)
+model = pt.inputs.target
+results = Chains(model, pt)
+
+
+octocorner(model, results, small=true)</code></pre><h2 id="Advanced-Usage:-Additional-Samplers"><a class="docs-heading-anchor" href="#Advanced-Usage:-Additional-Samplers">Advanced Usage: Additional Samplers</a><a id="Advanced-Usage:-Additional-Samplers-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Usage:-Additional-Samplers" title="Permalink"></a></h2><p>This section is for people interested in developing support for new samplers with Octofitter.</p><p>Octofitter converts your model specification into an <code>Octofitter.LogDensityModel</code> which implements the <a href="https://www.tamaspapp.eu/LogDensityProblems.jl/dev/">LogDensityProblems.jl interface</a>.</p><p>That way, you can sample from your model using a wide variety of Julia based samplers. These samplers may return results in less convenient formats, and for example, may need you to map their results back to the natural domain of your variables using <code>model.link</code> or <code>model.invlink</code>.</p><p>For convenience, Octofitter bundles special support for the No U-Turn Sampler (NUTS) as implemented by AdvancedHMC.jl (see above).</p><p>In order to use the results of most other samplers, you will need a function to map results from their transformed variables back to their natural domain and reconstruct the chains:</p><pre><code class="language-julia hljs"># Results are in normalized parameter space and need to be mapped back to their constrained support
+
+# Function to map the samples back to their natural domain
+function remapchain(mc_samples)
+    logpost = map(s-&gt;s.lp, mc_samples)
+    # Transform samples back to constrained support
+    samples = map(mc_samples) do s
+        θ_t = s.params
+        θ = model.invlink(θ_t)
+        return θ
+    end
+    chain_res = model.arr2nt.(samples)
+    chain = Octofitter.result2mcmcchain(chain_res)
+    return MCMCChains.setinfo(
+        chain,
+        (;
+            # start_time,
+            # stop_time,
+            model=model.system,
+            logpost=logpost,
+        )
+    )
+end</code></pre><h3 id="AdvancedMH"><a class="docs-heading-anchor" href="#AdvancedMH">AdvancedMH</a><a id="AdvancedMH-1"></a><a class="docs-heading-anchor-permalink" href="#AdvancedMH" title="Permalink"></a></h3><p>Here is an example of using a separate package to sample from a model–-in this case, AdvancedHM. For other packages, see their documentation for full details.</p><p>Note: this sampler does not work well and is just provided as a reference for how to use an arbitrary sampling package.</p><pre><code class="language-julia hljs">using AdvancedMH
+using MCMCChains: Chains
+
+# Construct model from a system (see elsewhere in docs)
+model = Octofitter.LogDensityModel(system)
+
+# Set up a random walk sampler with a joint multivariate Normal proposal.
+using LinearAlgebra
+spl = RWMH(MvNormal(zeros(model.D), I))
+
+# Find initial guess by drawing from priors
+initial_θ = Octofitter.guess_starting_position(model,50_000)[1]
+initial_θ_t = model.link(initial_θ) # Map to unconstrainted parameterization
+
+# Sample from the posterior.
+chn_norm = sample(
+    model,
+    spl,
+    1_000_000;
+    chain_type=Any,
+    init_params=initial_θ_t
+)
+
+chn_mh = remapchain(chn_norm)</code></pre><h3 id="Emcee-(affine-invariant-sampler)"><a class="docs-heading-anchor" href="#Emcee-(affine-invariant-sampler)">Emcee (affine invariant sampler)</a><a id="Emcee-(affine-invariant-sampler)-1"></a><a class="docs-heading-anchor-permalink" href="#Emcee-(affine-invariant-sampler)" title="Permalink"></a></h3><div class="admonition is-warning" id="Warning-20df81350874b7c2"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-20df81350874b7c2" title="Permalink"></a></header><div class="admonition-body"><p>This example is under construction</p></div></div><p>We can use the AdvancedMH package to implement a sampler that is similar to emcee.py. This might be helpful for reproducing the results of packages like orbitize! that are based on this sampler, but is not recommended otherwise.</p><pre><code class="language-julia hljs">using AdvancedMH
+using MCMCChains: MCMCChains, Chains, chainscat
+
+# Construct model from a system (see elsewhere in docs)
+model = Octofitter.LogDensityModel(system)
+
+initial_θ = Octofitter.guess_starting_position(model,50_000)[1]
+initial_θ_t = model.link(initial_θ) # Map to unconstrainted parameterization
+
+
+using LinearAlgebra
+
+# Set up our sampler with a joint multivariate Normal proposal.
+spl = Ensemble(1_000, StretchProposal(MvNormal(zeros(model.D), I)))
+
+# Sample from the posterior.
+start_time = time()
+chn_raw = sample(
+    model,
+    spl,
+    1_000;
+    chain_type=Any,
+    init_params=initial_θ_t
+)
+stop_time = time()
+# Results are in normalized parameter space and need to be mapped back to their constrained support
+
+# Function to map the samples from all walkers back to their natural domain
+function remapchain(mc_samples_by_chain)
+    chains = map(mc_samples_by_chain) do mc_samples
+        logpost = map(s-&gt;s.lp, mc_samples)
+        # Transform samples back to constrained support
+        samples = map(mc_samples) do s
+            θ_t = s.params
+            θ = model.invlink(θ_t)
+            return θ
+        end
+        chain_res = model.arr2nt.(samples)
+        chain = Octofitter.result2mcmcchain(chain_res)
+        return MCMCChains.setinfo(
+            chain,
+            (;
+                start_time,
+                stop_time,
+                model=model.system,
+                logpost=logpost,
+            )
+        )
+    end
+    chainscat(chains...)
+end
+# Remap back to natural domain 
+chn_all = remapchain(chn_raw)
+# Discard some burn in
+chn = chn_all[500:end,:,:];</code></pre><h3 id="Tempering"><a class="docs-heading-anchor" href="#Tempering">Tempering</a><a id="Tempering-1"></a><a class="docs-heading-anchor-permalink" href="#Tempering" title="Permalink"></a></h3><p>The package MCMCTempering can be used to temper most Julia MCMC samplers. Here is an example with AdvancedMH. </p><div class="admonition is-info" id="Note-f21694478d512605"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-f21694478d512605" title="Permalink"></a></header><div class="admonition-body"><p>MCMCTempering is under active development. The API might evolve, and you may need to ensure you&#39;re using the latest <code>#main</code> branch rather than published release.</p></div></div><pre><code class="language-julia hljs">using MCMCTempering, AdvancedMH, MCMCChains
+MCMCTempering.getparams(transition::AdvancedMH.Transition) = transition.params
+
+tempered_sampler = tempered(sampler, 25);
+
+# Sample from the posterior.
+chn_norm = sample(
+    model, tempered_sampler, 1_000_000;
+    discard_initial=100_000, chain_type=Any,
+    init_params=initial_θ_t
+)
+
+
+chn = remapchain(chn_norm)</code></pre><h3 id="Customized-NUTS-Sampling"><a class="docs-heading-anchor" href="#Customized-NUTS-Sampling">Customized NUTS Sampling</a><a id="Customized-NUTS-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Customized-NUTS-Sampling" title="Permalink"></a></h3><p>This example shows how to customize different aspects of the default NUTS sampler.</p><pre><code class="language-julia hljs">using AdvancedHMC
+initial_θ = Octofitter.guess_starting_position(model,150_000)[1]
+initial_θ_t = model.link(initial_θ)
+metric = DenseEuclideanMetric(model.D)
+hamiltonian = Hamiltonian(metric, model)
+ϵ = find_good_stepsize(hamiltonian, initial_θ_t)
+
+integrator = JitteredLeapfrog(ϵ, 0.1) # 10% normal distribution on step size to help in areas of high curvature. 
+# integrator = Leapfrog(ϵ)
+# κ = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator, max_depth=12)
+κ = NUTS{SliceTS,GeneralisedNoUTurn}(integrator, max_depth=12)
+
+mma = MassMatrixAdaptor(metric)
+ssa = StepSizeAdaptor(0.75, integrator)
+adaptor = StanHMCAdaptor(mma, ssa) 
+sampler = AdvancedHMC.HMCSampler(κ, metric, adaptor)
+
+# Sample from the posterior.
+chn_norm = sample(
+    # model, tempered_sampler, 500;
+    model, sampler, 500,
+    nadapts = 250,
+    discard_initial=250, chain_type=Any,
+    init_params=initial_θ_t
+)
+
+function remapchain(mc_samples::AbstractArray{&lt;:AdvancedHMC.Transition})
+    stat = map(s-&gt;s.stat, mc_samples)
+    logpost = map(s-&gt;s.z.ℓπ.value, mc_samples)
+    
+    mean_accept = mean(getproperty.(stat, :acceptance_rate))
+    ratio_divergent_transitions = mean(getproperty.(stat, :numerical_error))
+    mean_tree_depth = mean(getproperty.(stat, :tree_depth))
+
+    println(&quot;&quot;&quot;
+    Sampling report for chain:
+    mean_accept         = $mean_accept
+    ratio_divergent_transitions        = $ratio_divergent_transitions
+    mean_tree_depth     = $mean_tree_depth\
+    &quot;&quot;&quot;)
+
+    # Report some warnings if sampling did not work well
+    if ratio_divergent_transitions == 1.0
+        @error &quot;Numerical errors encountered in ALL iterations. Check model and priors.&quot;
+    elseif ratio_divergent_transitions &gt; 0.1
+        @warn &quot;Numerical errors encountered in more than 10% of iterations&quot; ratio_divergent_transitions
+    end
+    # Transform samples back to constrained support
+    samples = map(mc_samples) do s
+        θ_t = s.z.θ
+        θ = model.invlink(θ_t)
+        return θ
+    end
+    chain_res = model.arr2nt.(samples)
+    chain = Octofitter.result2mcmcchain(chain_res)
+    return MCMCChains.setinfo(
+        chain,
+        (;
+            # start_time,
+            # stop_time,
+            model=model.system,
+            logpost=logpost,
+        )
+    )
+end
+
+chn = remapchain(chn_norm)
+</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../loading-saving/">« Loading and Saving Data</a><a class="docs-footer-nextpage" href="../parallel-sampling/">Distributed Sampling »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 2 June 2025 16:19">Monday 2 June 2025</span>. Using Julia version 1.10.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

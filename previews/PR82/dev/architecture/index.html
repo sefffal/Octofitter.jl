@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Architecture Overview · Octofitter.jl</title><meta name="title" content="Architecture Overview · Octofitter.jl"/><meta property="og:title" content="Architecture Overview · Octofitter.jl"/><meta property="twitter:title" content="Architecture Overview · Octofitter.jl"/><meta name="description" content="Documentation for Octofitter.jl."/><meta property="og:description" content="Documentation for Octofitter.jl."/><meta property="twitter:description" content="Documentation for Octofitter.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Octofitter.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Octofitter.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Getting Started</span><ul><li><a class="tocitem" href="../../installation/">Installation</a></li><li><a class="tocitem" href="../../quick-start/">Quick Start</a></li><li><a class="tocitem" href="../../faq/">FAQ</a></li><li><a class="tocitem" href="../../migration/">Migration Guide</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox"/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Relative Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../rel-astrom/">Basic Astrom Fit</a></li><li><a class="tocitem" href="../../rel-astrom-obs/">Observable Priors</a></li><li><a class="tocitem" href="../../fit-coplanar/">Resonant Co-Planar Model</a></li><li><a class="tocitem" href="../../thiele-innes/">Thiele-Innes Parameters</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Radial Velocity</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../rv-1/">Basic RV Fit</a></li><li><a class="tocitem" href="../../rv-gp/">Gaussian Process</a></li><li><a class="tocitem" href="../../rv-multi-planet/">Multiple Planets</a></li><li><a class="tocitem" href="../../fit-rv-rel/">Relative RV Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Absolute Astrometry</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../pma/">Proper Motion Anomaly</a></li><li><a class="tocitem" href="../../hipparcos/">Hipparcos IAD</a></li><li><a class="tocitem" href="../../gaia-iad/">Gaia DR4 IAD</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Images and More</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../images/">Image Data (de-orbiting)</a></li><li><a class="tocitem" href="../../extract-phot-astrom/">Extract Astrom. and Photometry</a></li><li><a class="tocitem" href="../../mass-photometry/">Connect Mass and Photometry</a></li><li><a class="tocitem" href="../../fit-interfere/">Interferometer Data</a></li><li><a class="tocitem" href="../../fit-likemap/">Likelihood Map</a></li><li><a class="tocitem" href="../../fit-grav-wide/">GRAVITY Wide Data</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Joint Models</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../astrom-pma-rv/">Astrometry, PMA, and RV</a></li><li><a class="tocitem" href="../../fit-rv-astrom/">RV and Relative Astrometry</a></li><li><a class="tocitem" href="../../rv/">RV and Proper Motion Anomaly</a></li><li><a class="tocitem" href="../../limits/">Calculate Detection Limits</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-6" type="checkbox"/><label class="tocitem" for="menuitem-3-6"><span class="docs-label">Bayesian Workflows</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../eccentric-or-circular/">Circular or Eccentric? Model Comparison</a></li><li><a class="tocitem" href="../../data-simulation/">Generating and Fitting Simulated Data</a></li><li><a class="tocitem" href="../../prior-pred/">Prior Predictive Checks</a></li><li><a class="tocitem" href="../../post-pred/">Posterior Predictive Checks</a></li><li><a class="tocitem" href="../../cross-validation/">Cross Validation</a></li><li><a class="tocitem" href="../../sbc/">Simulation Based Calibration</a></li></ul></li></ul></li><li><span class="tocitem">Documentation</span><ul><li><a class="tocitem" href="../../python/">Using Python</a></li><li><a class="tocitem" href="../../chains/">Chains</a></li><li><a class="tocitem" href="../../octoplot/">Orbit plots with <code>octoplot</code></a></li><li><a class="tocitem" href="../../rvpostplot/">RV plots with <code>rvpostplot</code></a></li><li><a class="tocitem" href="../../loading-saving/">Loading and Saving Data</a></li><li><a class="tocitem" href="../../samplers/">Sampler</a></li><li><a class="tocitem" href="../../parallel-sampling/">Distributed Sampling</a></li><li><a class="tocitem" href="../../priors/">Priors</a></li><li><a class="tocitem" href="../../derived/">Derived Variables</a></li><li><a class="tocitem" href="../../custom-likelihood/">Custom Likelihoods</a></li><li><a class="tocitem" href="../../kepler/">Kepler Solver</a></li><li><a class="tocitem" href="../../compat-orbitize/">Orbitize! Compatibility</a></li><li><a class="tocitem" href="../../api/">Full API Documentation</a></li></ul></li><li><span class="tocitem">Developer Documentation</span><ul><li class="is-active"><a class="tocitem" href>Architecture Overview</a><ul class="internal"><li><a class="tocitem" href="#High-Level-Flow"><span>High-Level Flow</span></a></li><li><a class="tocitem" href="#1.-Model-Definition-Layer"><span>1. Model Definition Layer</span></a></li><li><a class="tocitem" href="#2.-The-arr2nt-Transformation"><span>2. The <code>arr2nt</code> Transformation</span></a></li><li><a class="tocitem" href="#3.-Bijection-Mechanisms"><span>3. Bijection Mechanisms</span></a></li><li><a class="tocitem" href="#4.-Log-Prior-Generation"><span>4. Log Prior Generation</span></a></li><li><a class="tocitem" href="#5.-Log-Likelihood-Generation"><span>5. Log Likelihood Generation</span></a></li><li><a class="tocitem" href="#6.-The-LogDensityModel-Orchestrator"><span>6. The <code>LogDensityModel</code> Orchestrator</span></a></li><li><a class="tocitem" href="#7.-Design-Principles"><span>7. Design Principles</span></a></li><li><a class="tocitem" href="#8.-Example:-Complete-Flow"><span>8. Example: Complete Flow</span></a></li><li><a class="tocitem" href="#Summary"><span>Summary</span></a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Developer Documentation</a></li><li class="is-active"><a href>Architecture Overview</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Architecture Overview</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sefffal/Octofitter.jl/blob/main/docs/src/dev/architecture.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Architecture-Overview"><a class="docs-heading-anchor" href="#Architecture-Overview">Architecture Overview</a><a id="Architecture-Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Architecture-Overview" title="Permalink"></a></h1><p>This document provides an overview of Octofitter&#39;s internal architecture, focusing on how user model specifications are transformed into efficient log prior and log likelihood functions for Bayesian inference.</p><h2 id="High-Level-Flow"><a class="docs-heading-anchor" href="#High-Level-Flow">High-Level Flow</a><a id="High-Level-Flow-1"></a><a class="docs-heading-anchor-permalink" href="#High-Level-Flow" title="Permalink"></a></h2><pre><code class="language-mermaid hljs">flowchart TD
+    A[User Model Specification] --&gt; B[@variables macro]
+    B --&gt; C[Priors, Derived, UserLikelihoods]
+    C --&gt; D[Planet &amp; System Objects]
+    D --&gt; E[LogDensityModel Construction]
+
+    E --&gt; F[Generated Functions]
+    F --&gt; F1[sample_priors]
+    F --&gt; F2[arr2nt]
+    F --&gt; F3[ln_prior_transformed]
+    F --&gt; F4[ln_like_generated]
+    F --&gt; F5[Bijector_invlinkvec/linkvec]
+
+    F1 &amp; F2 &amp; F3 &amp; F4 &amp; F5 --&gt; G[ℓπcallback &amp; ∇ℓπcallback]
+    G --&gt; H[Sampler: HMC, NUTS, etc.]
+
+    H --&gt; I[θ_transformed]
+    I --&gt; J[Bijector_invlinkvec]
+    J --&gt; K[θ_natural]
+    K --&gt; L[arr2nt]
+    L --&gt; M[θ_nested: NamedTuple]
+    M --&gt; N[log_prior + log_likelihood]
+    N --&gt; O[log_posterior]
+
+    style E fill:#e1f5ff
+    style F fill:#fff4e1
+    style G fill:#e8f5e9
+    style M fill:#fce4ec</code></pre><h2 id="1.-Model-Definition-Layer"><a class="docs-heading-anchor" href="#1.-Model-Definition-Layer">1. Model Definition Layer</a><a id="1.-Model-Definition-Layer-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Model-Definition-Layer" title="Permalink"></a></h2><h3 id="The-@variables-Macro"><a class="docs-heading-anchor" href="#The-@variables-Macro">The <code>@variables</code> Macro</a><a id="The-@variables-Macro-1"></a><a class="docs-heading-anchor-permalink" href="#The-@variables-Macro" title="Permalink"></a></h3><p><strong>Location</strong>: <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/macros.jl"><code>src/macros.jl</code></a>, <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl"><code>src/variables.jl</code></a></p><p>The <code>@variables</code> macro is Octofitter&#39;s PPL interface. It parses variable definitions into prior distributions and derived variables:</p><pre><code class="language-julia hljs">@variables begin
+    a ~ Uniform(0, 10)      # Prior distribution
+    e ~ Beta(1, 2)          # Prior distribution
+    mass = a^2 * e          # Derived variable
+    Normal(0,1) ~ a + e     # User likelihood constraint
+end</code></pre><p><strong>Output</strong>: A tuple <code>(Priors, Derived, [UserLikelihood...])</code> where:</p><ul><li><code>Priors</code>: Contains an <code>OrderedDict{Symbol,Distribution}</code> of random variables</li><li><code>Derived</code>: Contains expressions for computed variables plus captured constants (via <code>$variable</code> interpolation)</li><li><code>UserLikelihood</code>: Optional distribution constraints on expressions</li></ul><h3 id="Special-Parameterizations"><a class="docs-heading-anchor" href="#Special-Parameterizations">Special Parameterizations</a><a id="Special-Parameterizations-1"></a><a class="docs-heading-anchor-permalink" href="#Special-Parameterizations" title="Permalink"></a></h3><p>Certain parameterizations expand into multiple variables. For example, <code>UniformCircular()</code> for angles:</p><pre><code class="language-julia hljs">Ω ~ UniformCircular()</code></pre><p>Expands to:</p><pre><code class="language-julia hljs">Ωx ~ Normal(0, 1)        # Priors
+Ωy ~ Normal(0, 1)        # Priors
+Ω = atan(Ωy, Ωx)         # Derived variable
+# Plus a UnitLengthPrior likelihood to prevent pinching at origin</code></pre><p>This ensures uniform sampling on the circle while avoiding the pinching problem at the origin that would occur with direct uniform angle sampling.</p><h3 id="Model-Hierarchy"><a class="docs-heading-anchor" href="#Model-Hierarchy">Model Hierarchy</a><a id="Model-Hierarchy-1"></a><a class="docs-heading-anchor-permalink" href="#Model-Hierarchy" title="Permalink"></a></h3><pre><code class="language-julia hljs">System(
+    name=:HD82134,
+    variables=@variables begin
+        M ~ Normal(1.0, 0.1)
+        plx ~ Normal(50.0, 0.02)
+    end,
+    companions=[planet_b, planet_c],
+    likelihoods=[hgca_likelihood, gaia_likelihood]
+)</code></pre><p><strong>Structure</strong>:</p><ul><li><code>System</code>: System-level priors, derived variables, observations, and companion objects</li><li><code>Planet</code>: Planet-level priors, derived variables, and observations</li><li>Each can have attached <code>AbstractLikelihood</code> objects representing observational data</li></ul><h2 id="2.-The-arr2nt-Transformation"><a class="docs-heading-anchor" href="#2.-The-arr2nt-Transformation">2. The <code>arr2nt</code> Transformation</a><a id="2.-The-arr2nt-Transformation-1"></a><a class="docs-heading-anchor-permalink" href="#2.-The-arr2nt-Transformation" title="Permalink"></a></h2><p><strong>Location</strong>: <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl"><code>src/variables.jl:600-902</code></a></p><h3 id="Purpose"><a class="docs-heading-anchor" href="#Purpose">Purpose</a><a id="Purpose-1"></a><a class="docs-heading-anchor-permalink" href="#Purpose" title="Permalink"></a></h3><p>The <code>make_arr2nt</code> function generates a specialized function that transforms flat parameter vectors (used by samplers) into nested named tuples (used for model evaluation):</p><pre><code class="language-julia hljs">arr2nt = make_arr2nt(system)
+
+θ_flat = [1.2, 50.0, 5.0, 0.1, ...]  # From sampler
+θ_nested = arr2nt(θ_flat)
+
+# Returns structured data:
+# (M=1.2, plx=50.0,
+#  planets=(
+#    b=(a=5.0, e=0.1, tp=..., mass=...),
+#    c=(a=10.0, e=0.05, ...)
+#  ))</code></pre><h3 id="Implementation-Strategy"><a class="docs-heading-anchor" href="#Implementation-Strategy">Implementation Strategy</a><a id="Implementation-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation-Strategy" title="Permalink"></a></h3><p>The function uses <strong>compile-time code generation</strong> via <code>RuntimeGeneratedFunctions.jl</code> to create a fully type-stable, unrolled transformation:</p><ol><li><strong>Direct indexing</strong>: All array accesses are unrolled to <code>arr[1]</code>, <code>arr[2]</code>, etc.</li><li><strong>Dependency ordering</strong>: Variables are processed in dependency order:<ul><li>System priors → System derived → Planet priors → Planet derived → Observation priors → Observation derived</li></ul></li><li><strong>Scope management</strong>: Uses nested <code>let</code> blocks to provide proper scoping for derived variables</li></ol><h3 id="Generated-Code-Pattern"><a class="docs-heading-anchor" href="#Generated-Code-Pattern">Generated Code Pattern</a><a id="Generated-Code-Pattern-1"></a><a class="docs-heading-anchor-permalink" href="#Generated-Code-Pattern" title="Permalink"></a></h3><p>For a simple two-planet system, the generated function looks like:</p><pre><code class="language-julia hljs">function (arr)
+    # System priors (direct indexing)
+    M = arr[1]
+    plx = arr[2]
+    sys0 = (M=M, plx=plx)
+
+    # System derived variables (can reference priors)
+    sys1 = let _prev=sys0
+        (; _prev..., distance = 1000/_prev.plx)
+    end
+    sys = sys1
+
+    # Planet B variables
+    planet_b = begin
+        # Planet priors
+        planet0 = (a=arr[3], e=arr[4], i=arr[5], ...)
+
+        # Planet derived (can reference system AND planet priors)
+        planet1 = let system=sys, _prev=planet0
+            (; _prev...,
+               tp = θ_at_epoch_to_tperi(_prev.θ, 50000;
+                                        M=system.M,
+                                        e=_prev.e,
+                                        a=_prev.a, ...))
+        end
+        planet1
+    end
+
+    # Planet C variables (similar structure)
+    planet_c = begin
+        planet0 = (a=arr[10], e=arr[11], ...)
+        planet1 = let system=sys, _prev=planet0
+            # ... derived variables
+        end
+        planet1
+    end
+
+    # Merge into final nested structure
+    return (;sys..., planets=(b=planet_b, c=planet_c))
+end</code></pre><h3 id="Key-Design-Decisions"><a class="docs-heading-anchor" href="#Key-Design-Decisions">Key Design Decisions</a><a id="Key-Design-Decisions-1"></a><a class="docs-heading-anchor-permalink" href="#Key-Design-Decisions" title="Permalink"></a></h3><ul><li><strong>Type stability</strong>: By unrolling everything, Julia can infer concrete types</li><li><strong>Zero runtime overhead</strong>: All indexing and structure construction is known at compile time</li><li><strong>Named access in likelihoods</strong>: Derived variable expressions can use descriptive names (e.g., <code>θ_system.distance</code>) rather than array indices</li></ul><h2 id="3.-Bijection-Mechanisms"><a class="docs-heading-anchor" href="#3.-Bijection-Mechanisms">3. Bijection Mechanisms</a><a id="3.-Bijection-Mechanisms-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Bijection-Mechanisms" title="Permalink"></a></h2><p><strong>Location</strong>: <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/logdensitymodel.jl"><code>src/logdensitymodel.jl:61-84</code></a>, <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl"><code>src/variables.jl:1289-1335</code></a></p><h3 id="Purpose-2"><a class="docs-heading-anchor" href="#Purpose-2">Purpose</a><a class="docs-heading-anchor-permalink" href="#Purpose-2" title="Permalink"></a></h3><p>Most samplers (especially HMC/NUTS) work best in unconstrained space. Bijectors transform between constrained (natural parameter space) and unconstrained (sampling space) representations.</p><h3 id="Transformation-Functions"><a class="docs-heading-anchor" href="#Transformation-Functions">Transformation Functions</a><a id="Transformation-Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Transformation-Functions" title="Permalink"></a></h3><h4 id="1.-Bijector_linkvec:-Constrained-Unconstrained"><a class="docs-heading-anchor" href="#1.-Bijector_linkvec:-Constrained-Unconstrained">1. <code>Bijector_linkvec</code>: Constrained → Unconstrained</a><a id="1.-Bijector_linkvec:-Constrained-Unconstrained-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Bijector_linkvec:-Constrained-Unconstrained" title="Permalink"></a></h4><p>Used for initialization and diagnostics:</p><pre><code class="language-julia hljs">θ_constrained = [0.5, 100.0]  # e ∈ [0,1], plx &gt; 0
+θ_unconstrained = Bijector_linkvec(θ_constrained)
+# e.g., [-0.69, 4.61] (logit and log transforms)</code></pre><h4 id="2.-make_Bijector_invlinkvec:-Unconstrained-Constrained"><a class="docs-heading-anchor" href="#2.-make_Bijector_invlinkvec:-Unconstrained-Constrained">2. <code>make_Bijector_invlinkvec</code>: Unconstrained → Constrained</a><a id="2.-make_Bijector_invlinkvec:-Unconstrained-Constrained-1"></a><a class="docs-heading-anchor-permalink" href="#2.-make_Bijector_invlinkvec:-Unconstrained-Constrained" title="Permalink"></a></h4><p>Generated function used during sampling for <strong>maximum performance</strong>:</p><pre><code class="language-julia hljs">Bijector_invlinkvec = make_Bijector_invlinkvec(_list_priors(system))
+
+# Generated code applies appropriate inverse transforms:
+function (arr)
+    tuple(
+        Bijectors.invlink(Uniform(0,1), arr[1]),      # Logit⁻¹
+        Bijectors.invlink(Normal(50,0.1), arr[2]),    # Identity
+        Bijectors.invlink(LogNormal(0,1), arr[3]),    # Exp
+        ...
+    )
+end</code></pre><h3 id="Common-Transformations"><a class="docs-heading-anchor" href="#Common-Transformations">Common Transformations</a><a id="Common-Transformations-1"></a><a class="docs-heading-anchor-permalink" href="#Common-Transformations" title="Permalink"></a></h3><table><tr><th style="text-align: right">Distribution</th><th style="text-align: right">Transform</th><th style="text-align: right">Unconstrained Range</th></tr><tr><td style="text-align: right"><code>Uniform(a,b)</code></td><td style="text-align: right">Logit (scaled)</td><td style="text-align: right">ℝ</td></tr><tr><td style="text-align: right"><code>Normal(μ,σ)</code></td><td style="text-align: right">Identity</td><td style="text-align: right">ℝ</td></tr><tr><td style="text-align: right"><code>LogNormal(μ,σ)</code></td><td style="text-align: right">Log</td><td style="text-align: right">ℝ</td></tr><tr><td style="text-align: right"><code>Beta(α,β)</code></td><td style="text-align: right">Logit</td><td style="text-align: right">ℝ</td></tr><tr><td style="text-align: right"><code>Truncated(...)</code></td><td style="text-align: right">Custom bijector</td><td style="text-align: right">ℝ</td></tr></table><h3 id="Jacobian-Corrections"><a class="docs-heading-anchor" href="#Jacobian-Corrections">Jacobian Corrections</a><a id="Jacobian-Corrections-1"></a><a class="docs-heading-anchor-permalink" href="#Jacobian-Corrections" title="Permalink"></a></h3><p>When sampling in transformed space, we must account for the change of variables in the probability density. This is handled automatically in <code>logpdf_with_trans</code>.</p><h2 id="4.-Log-Prior-Generation"><a class="docs-heading-anchor" href="#4.-Log-Prior-Generation">4. Log Prior Generation</a><a id="4.-Log-Prior-Generation-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Log-Prior-Generation" title="Permalink"></a></h2><p><strong>Location</strong>: <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/variables.jl"><code>src/variables.jl:1047-1211</code></a></p><h3 id="Purpose-3"><a class="docs-heading-anchor" href="#Purpose-3">Purpose</a><a class="docs-heading-anchor-permalink" href="#Purpose-3" title="Permalink"></a></h3><p>The <code>make_ln_prior_transformed</code> function generates an unrolled function to efficiently evaluate the log prior density across all parameters:</p><pre><code class="language-julia hljs">ln_prior_transformed = make_ln_prior_transformed(system)
+lp = ln_prior_transformed(θ_natural, sampled=true)</code></pre><h3 id="Generated-Code-Pattern-2"><a class="docs-heading-anchor" href="#Generated-Code-Pattern-2">Generated Code Pattern</a><a class="docs-heading-anchor-permalink" href="#Generated-Code-Pattern-2" title="Permalink"></a></h3><pre><code class="language-julia hljs">function (arr, sampled)
+    lp = zero(first(arr))  # Type-stable zero
+
+    # System priors
+    lp += logpdf_with_trans(Uniform(0,10), arr[1], sampled)
+    lp += logpdf_with_trans(Beta(1,2), arr[2], sampled)
+
+    # Planet priors
+    lp += logpdf_with_trans(Normal(0,1), arr[3], sampled)
+    lp += logpdf_with_trans(LogNormal(0,1), arr[4], sampled)
+    # ... continues for all priors
+
+    # User-defined likelihood constraints (from @variables)
+    lp += logpdf(Normal(0,1), arr[1] + arr[2])
+
+    return lp
+end</code></pre><h3 id="The-sampled-Parameter"><a class="docs-heading-anchor" href="#The-sampled-Parameter">The <code>sampled</code> Parameter</a><a id="The-sampled-Parameter-1"></a><a class="docs-heading-anchor-permalink" href="#The-sampled-Parameter" title="Permalink"></a></h3><ul><li><code>sampled=true</code>: Includes Jacobian correction for transformed sampling (used during MCMC)</li><li><code>sampled=false</code>: Raw log probability (used for prior predictive checks)</li></ul><h3 id="Performance-Characteristics"><a class="docs-heading-anchor" href="#Performance-Characteristics">Performance Characteristics</a><a id="Performance-Characteristics-1"></a><a class="docs-heading-anchor-permalink" href="#Performance-Characteristics" title="Permalink"></a></h3><ul><li><strong>Fully unrolled</strong>: No loops or dynamic dispatch</li><li><strong>Type stable</strong>: Return type is known at compile time</li><li><strong>SIMD friendly</strong>: Sequential memory access pattern</li><li><strong>Automatic differentiation ready</strong>: Clean, differentiable code</li></ul><h2 id="5.-Log-Likelihood-Generation"><a class="docs-heading-anchor" href="#5.-Log-Likelihood-Generation">5. Log Likelihood Generation</a><a id="5.-Log-Likelihood-Generation-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Log-Likelihood-Generation" title="Permalink"></a></h2><p><strong>Location</strong>: <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/likelihoods/system.jl"><code>src/likelihoods/system.jl</code></a></p><h3 id="Purpose-4"><a class="docs-heading-anchor" href="#Purpose-4">Purpose</a><a class="docs-heading-anchor-permalink" href="#Purpose-4" title="Permalink"></a></h3><p>The <code>make_ln_like</code> function is the most complex generated function. It orchestrates:</p><ol><li><strong>Orbit element construction</strong> from parameter values</li><li><strong>Epoch collection</strong> from all observations</li><li><strong>Orbit solving</strong> (Kepler&#39;s equation) at all epochs</li><li><strong>Likelihood evaluation</strong> for each observation</li></ol><h3 id="High-Level-Structure"><a class="docs-heading-anchor" href="#High-Level-Structure">High-Level Structure</a><a id="High-Level-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#High-Level-Structure" title="Permalink"></a></h3><pre><code class="language-mermaid hljs">flowchart LR
+    A[θ_nested] --&gt; B[Construct Orbit Elements]
+    B --&gt; C[Collect All Epochs]
+    C --&gt; D[Pre-solve Orbits]
+    D --&gt; E1[System Likelihood 1]
+    D --&gt; E2[System Likelihood 2]
+    D --&gt; P1[Planet 1 Likelihoods]
+    D --&gt; P2[Planet 2 Likelihoods]
+    E1 &amp; E2 &amp; P1 &amp; P2 --&gt; F[Sum log likelihoods]
+
+    style D fill:#e1f5ff
+    style F fill:#e8f5e9</code></pre><h3 id="Generated-Code-Pattern-3"><a class="docs-heading-anchor" href="#Generated-Code-Pattern-3">Generated Code Pattern</a><a class="docs-heading-anchor-permalink" href="#Generated-Code-Pattern-3" title="Permalink"></a></h3><pre><code class="language-julia hljs">function (system::System, θ_system)
+    T = _system_number_type(θ_system)
+    ll0 = zero(T)
+
+    # Construct orbit element objects for each planet
+    planet_1 = VisualOrbit(;merge(θ_system, θ_system.planets[1])...)
+    planet_2 = ThieleInnesOrbit(;merge(θ_system, θ_system.planets[2])...)
+
+    ll_out = @no_escape begin  # Bumper.jl: stack allocation scope
+        elems = tuple(planet_1, planet_2)
+
+        # Collect all unique epochs from all observations
+        epochs = [50000.0, 50100.0, 50200.0, ...]
+
+        # Pre-solve orbits at all epochs (Kepler equation solving)
+        sols_planet_1 = [orbitsolve(planet_1, epoch) for epoch in epochs]
+        sols_planet_2 = [orbitsolve(planet_2, epoch) for epoch in epochs]
+
+        # Evaluate planet observation likelihoods
+        ll1 = ll0 + ln_like(
+            system.planets[1].observations[1],  # e.g., PlanetRelAstromLikelihood
+            θ_system,                            # System parameters
+            θ_system.planets[1],                 # Planet parameters
+            θ_obs,                               # Observation parameters
+            elems,                               # All orbit elements
+            (sols_planet_1, sols_planet_2),      # Pre-computed orbit solutions
+            1,                                   # Planet index
+            0                                    # Epoch start index
+        )
+
+        # Evaluate system observation likelihoods
+        ll2 = ll1 + ln_like(
+            system.observations[1],              # e.g., HGCALikelihood
+            θ_system,
+            θ_obs,
+            elems,
+            (sols_planet_1, sols_planet_2),
+            0                                    # System level (no specific planet)
+        )
+
+        ll2
+    end
+
+    return ll_out
+end</code></pre><h3 id="Why-Pre-solve-Orbits?"><a class="docs-heading-anchor" href="#Why-Pre-solve-Orbits?">Why Pre-solve Orbits?</a><a id="Why-Pre-solve-Orbits?-1"></a><a class="docs-heading-anchor-permalink" href="#Why-Pre-solve-Orbits?" title="Permalink"></a></h3><p>Solving Kepler&#39;s equation is expensive (iterative Newton-Raphson). Many observations may occur at the same epoch:</p><ul><li>Relative astrometry: RA and Dec at same epoch → solve once, use twice</li><li>Multi-instrument: Different instruments observing simultaneously → solve once, use many times</li></ul><p>By pre-solving all orbits at all unique epochs, we minimize redundant computation.</p><h3 id="Likelihood-Interface"><a class="docs-heading-anchor" href="#Likelihood-Interface">Likelihood Interface</a><a id="Likelihood-Interface-1"></a><a class="docs-heading-anchor-permalink" href="#Likelihood-Interface" title="Permalink"></a></h3><p>Each likelihood type implements a common interface:</p><pre><code class="language-julia hljs">function ln_like(
+    likeobj::AbstractLikelihood,    # The observation data
+    θ_system::NamedTuple,            # System parameters (M, plx, etc.)
+    θ_planet::NamedTuple,            # Planet parameters (a, e, i, etc.)
+    θ_obs::NamedTuple,               # Observation-specific parameters
+    elems::Tuple,                    # All orbit element objects
+    orbit_solutions::Tuple,          # Pre-computed orbit solutions
+    planet_index::Int,               # Which planet (0 for system-level)
+    epoch_start_index::Int           # Index into orbit_solutions
+)
+    # Calculate residuals: model predictions vs observations
+    # Return sum of log likelihoods
+end</code></pre><h3 id="Allocation-Management"><a class="docs-heading-anchor" href="#Allocation-Management">Allocation Management</a><a id="Allocation-Management-1"></a><a class="docs-heading-anchor-permalink" href="#Allocation-Management" title="Permalink"></a></h3><p>The <code>@no_escape</code> macro (from Bumper.jl) creates a stack-allocated memory arena:</p><ul><li><strong>Fast allocation</strong>: Stack bump allocation instead of heap</li><li><strong>Automatic cleanup</strong>: Memory freed when block exits</li><li><strong>Thread safe</strong>: Each thread has its own buffer</li></ul><p>This is crucial for performance since likelihood evaluation happens millions of times during sampling.</p><h2 id="6.-The-LogDensityModel-Orchestrator"><a class="docs-heading-anchor" href="#6.-The-LogDensityModel-Orchestrator">6. The <code>LogDensityModel</code> Orchestrator</a><a id="6.-The-LogDensityModel-Orchestrator-1"></a><a class="docs-heading-anchor-permalink" href="#6.-The-LogDensityModel-Orchestrator" title="Permalink"></a></h2><p><strong>Location</strong>: <a href="https://github.com/sefffal/Octofitter.jl/blob/main/src/logdensitymodel.jl"><code>src/logdensitymodel.jl</code></a></p><h3 id="Purpose-5"><a class="docs-heading-anchor" href="#Purpose-5">Purpose</a><a class="docs-heading-anchor-permalink" href="#Purpose-5" title="Permalink"></a></h3><p><code>LogDensityModel</code> ties everything together into an object that samplers can use:</p><pre><code class="language-julia hljs">model = LogDensityModel(system)</code></pre><h3 id="Construction-Process"><a class="docs-heading-anchor" href="#Construction-Process">Construction Process</a><a id="Construction-Process-1"></a><a class="docs-heading-anchor-permalink" href="#Construction-Process" title="Permalink"></a></h3><pre><code class="language-mermaid hljs">flowchart TD
+    A[LogDensityModel Construction] --&gt; B[Generate Functions]
+
+    B --&gt; C1[sample_priors]
+    B --&gt; C2[ln_prior_transformed]
+    B --&gt; C3[arr2nt]
+    B --&gt; C4[Bijector_invlinkvec]
+
+    C1 &amp; C2 &amp; C3 --&gt; D[Sample from priors]
+    D --&gt; E[Generate ln_like with example θ]
+    C4 &amp; E --&gt; F[Create ℓπcallback]
+    F --&gt; G[Create ∇ℓπcallback with AD]
+    G --&gt; H[Test &amp; Diagnose]
+    H --&gt; I[Return LogDensityModel]
+
+    style B fill:#fff4e1
+    style F fill:#e1f5ff
+    style G fill:#e8f5e9</code></pre><h4 id="Step-1:-Generate-Core-Functions"><a class="docs-heading-anchor" href="#Step-1:-Generate-Core-Functions">Step 1: Generate Core Functions</a><a id="Step-1:-Generate-Core-Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Step-1:-Generate-Core-Functions" title="Permalink"></a></h4><pre><code class="language-julia hljs">sample_priors = make_prior_sampler(system)
+ln_prior_transformed = make_ln_prior_transformed(system)
+arr2nt = make_arr2nt(system)
+Bijector_invlinkvec = make_Bijector_invlinkvec(_list_priors(system))</code></pre><h4 id="Step-2:-Generate-Likelihood-with-Example"><a class="docs-heading-anchor" href="#Step-2:-Generate-Likelihood-with-Example">Step 2: Generate Likelihood with Example</a><a id="Step-2:-Generate-Likelihood-with-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Generate-Likelihood-with-Example" title="Permalink"></a></h4><p>To create the likelihood function, we need an example parameter vector to determine types and structure:</p><pre><code class="language-julia hljs">θ_example = arr2nt(sample_priors(rng))
+ln_like_generated = make_ln_like(system, θ_example)</code></pre><h4 id="Step-3:-Create-ℓπcallback-(Log-Posterior)"><a class="docs-heading-anchor" href="#Step-3:-Create-ℓπcallback-(Log-Posterior)">Step 3: Create <code>ℓπcallback</code> (Log Posterior)</a><a id="Step-3:-Create-ℓπcallback-(Log-Posterior)-1"></a><a class="docs-heading-anchor-permalink" href="#Step-3:-Create-ℓπcallback-(Log-Posterior)" title="Permalink"></a></h4><p>The callback orchestrates the complete evaluation pipeline:</p><pre><code class="language-julia hljs">function ℓπcallback(θ_transformed)
+    # Transform from unconstrained to natural space
+    θ_natural = Bijector_invlinkvec(θ_transformed)
+
+    # Convert flat vector to nested named tuple
+    θ_structured = arr2nt(θ_natural)
+
+    # Evaluate log prior (with Jacobian correction)
+    lpost = ln_prior_transformed(θ_natural, sampled=true)
+
+    # Only evaluate likelihood if prior is finite
+    if isfinite(lpost)
+        lpost += ln_like_generated(system, θ_structured)
+    end
+
+    return lpost
+end</code></pre><h4 id="Step-4:-Create-ℓπcallback-(Gradient)"><a class="docs-heading-anchor" href="#Step-4:-Create-ℓπcallback-(Gradient)">Step 4: Create <code>∇ℓπcallback</code> (Gradient)</a><a id="Step-4:-Create-ℓπcallback-(Gradient)-1"></a><a class="docs-heading-anchor-permalink" href="#Step-4:-Create-ℓπcallback-(Gradient)" title="Permalink"></a></h4><p>Using DifferentiationInterface.jl with ForwardDiff backend:</p><pre><code class="language-julia hljs">∇ℓπcallback = DI.prepare_gradient(ℓπcallback, AutoForwardDiff(), θ_example)</code></pre><p>This enables efficient Hamiltonian Monte Carlo sampling.</p><h4 id="Step-5:-Test-and-Diagnose"><a class="docs-heading-anchor" href="#Step-5:-Test-and-Diagnose">Step 5: Test and Diagnose</a><a id="Step-5:-Test-and-Diagnose-1"></a><a class="docs-heading-anchor-permalink" href="#Step-5:-Test-and-Diagnose" title="Permalink"></a></h4><p>The constructor runs test evaluations:</p><ul><li>Checks type stability</li><li>Verifies gradient correctness (if AD is available)</li><li>Reports parameter count and compilation time</li></ul><h3 id="The-Complete-Model-Object"><a class="docs-heading-anchor" href="#The-Complete-Model-Object">The Complete Model Object</a><a id="The-Complete-Model-Object-1"></a><a class="docs-heading-anchor-permalink" href="#The-Complete-Model-Object" title="Permalink"></a></h3><pre><code class="language-julia hljs">struct LogDensityModel
+    ℓπcallback::Function              # Log posterior evaluation
+    ∇ℓπcallback::Function             # Log posterior + gradient
+    arr2nt::Function                  # Flat → Nested transformation
+    sample_priors::Function           # Prior sampling
+    link::Function                    # Constrained → Unconstrained
+    invlink::Function                 # Unconstrained → Constrained
+    # ... metadata fields
+end</code></pre><h3 id="Usage-in-Sampling"><a class="docs-heading-anchor" href="#Usage-in-Sampling">Usage in Sampling</a><a id="Usage-in-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#Usage-in-Sampling" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Initialize
+θ_init = model.link(model.sample_priors(rng))
+
+# Evaluate (called millions of times)
+lp = model.ℓπcallback(θ_current)
+lp, ∇lp = model.∇ℓπcallback(θ_current)
+
+# Post-process results
+θ_natural = model.invlink(θ_chain[i])
+θ_named = model.arr2nt(θ_natural)
+# Access: θ_named.planets.b.a</code></pre><h2 id="7.-Design-Principles"><a class="docs-heading-anchor" href="#7.-Design-Principles">7. Design Principles</a><a id="7.-Design-Principles-1"></a><a class="docs-heading-anchor-permalink" href="#7.-Design-Principles" title="Permalink"></a></h2><h3 id="1.-Type-Stability"><a class="docs-heading-anchor" href="#1.-Type-Stability">1. Type Stability</a><a id="1.-Type-Stability-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Type-Stability" title="Permalink"></a></h3><p>All generated functions are fully type-stable. Julia can infer concrete types for all intermediate values, enabling:</p><ul><li>LLVM optimization</li><li>Efficient memory layout</li><li>Elimination of dynamic dispatch</li></ul><h3 id="2.-Zero-Runtime-Overhead"><a class="docs-heading-anchor" href="#2.-Zero-Runtime-Overhead">2. Zero Runtime Overhead</a><a id="2.-Zero-Runtime-Overhead-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Zero-Runtime-Overhead" title="Permalink"></a></h3><p>Code generation moves work from runtime to compile time:</p><ul><li>No loops over variable names</li><li>No dictionary lookups</li><li>No type checking at runtime</li></ul><h3 id="3.-Separation-of-Concerns"><a class="docs-heading-anchor" href="#3.-Separation-of-Concerns">3. Separation of Concerns</a><a id="3.-Separation-of-Concerns-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Separation-of-Concerns" title="Permalink"></a></h3><p>Clean separation between:</p><ul><li><strong>Model specification</strong> (<code>@variables</code>, <code>Planet</code>, <code>System</code>): User-facing, flexible</li><li><strong>Code generation</strong> (<code>make_*</code> functions): Implementation detail, optimized</li><li><strong>Evaluation</strong> (<code>ℓπcallback</code>, etc.): Simple, fast, differentiation-ready</li></ul><h3 id="4.-Composability"><a class="docs-heading-anchor" href="#4.-Composability">4. Composability</a><a id="4.-Composability-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Composability" title="Permalink"></a></h3><p>Likelihoods implement a common interface and compose freely:</p><pre><code class="language-julia hljs">System(
+    likelihoods=[
+        HGCALikelihood(...),
+        GaiaDR4Likelihood(...),
+        CustomLikelihood(...)
+    ]
+)</code></pre><p>Each likelihood is independent and receives all information it needs via the standardized interface.</p><h3 id="5.-Allocation-Efficiency"><a class="docs-heading-anchor" href="#5.-Allocation-Efficiency">5. Allocation Efficiency</a><a id="5.-Allocation-Efficiency-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Allocation-Efficiency" title="Permalink"></a></h3><p>Strategic use of allocation management:</p><ul><li><code>RuntimeGeneratedFunctions</code>: Generate functions once, reuse forever</li><li><code>@no_escape</code>: Stack allocation for temporary arrays</li><li>Pre-allocation: Orbit solutions computed once per likelihood evaluation</li></ul><h2 id="8.-Example:-Complete-Flow"><a class="docs-heading-anchor" href="#8.-Example:-Complete-Flow">8. Example: Complete Flow</a><a id="8.-Example:-Complete-Flow-1"></a><a class="docs-heading-anchor-permalink" href="#8.-Example:-Complete-Flow" title="Permalink"></a></h2><p>Here&#39;s a concrete example showing the complete transformation pipeline:</p><pre><code class="language-julia hljs"># ========================================
+# 1. Model Definition
+# ========================================
+
+astrom_data = PlanetRelAstromLikelihood(
+    (epoch=50000.0, ra=100.0, dec=50.0, σ_ra=1.0, σ_dec=1.0),
+    (epoch=50100.0, ra=98.0, dec=52.0, σ_ra=1.0, σ_dec=1.0)
+)
+
+planet_vars = @variables begin
+    # Priors
+    a ~ truncated(Normal(10, 4), lower=0.1)
+    e ~ Uniform(0.0, 0.5)
+    i ~ Sine()
+    ω ~ UniformCircular()  # Expands to ωx, ωy priors + ω derived
+    Ω ~ UniformCircular()  # Expands to Ωx, Ωy priors + Ω derived
+    θ ~ UniformCircular()  # Expands to θx, θy priors + θ derived
+
+    # Derived variable
+    tp = θ_at_epoch_to_tperi(θ, 50000; M=system.M, e, a, i, ω, Ω)
+end
+
+b = Planet(
+    name=&quot;b&quot;,
+    basis=Visual{KepOrbit},
+    variables=planet_vars,
+    observations=[astrom_data]
+)
+
+system_vars = @variables begin
+    M ~ truncated(Normal(1.2, 0.1), lower=0.1)
+    plx ~ truncated(Normal(50.0, 0.02), lower=0.1)
+end
+
+system = System(
+    name=&quot;HD82134&quot;,
+    variables=system_vars,
+    companions=[b]
+)
+
+# ========================================
+# 2. Create Log Density Model
+# ========================================
+
+model = LogDensityModel(system)
+
+# This generates:
+# - sample_priors:  () -&gt; [random draws from all priors]
+# - arr2nt:         [θ₁, θ₂, ...] -&gt; (M=θ₁, plx=θ₂, planets=(b=(a=θ₃, ...)))
+# - ln_prior:       [θ₁, θ₂, ...] -&gt; Σ log p(θᵢ)
+# - ln_like:        nested_θ -&gt; Σ log p(data | θ)
+# - ℓπcallback:     θ_unconstrained -&gt; log p(θ, data)
+# - ∇ℓπcallback:    θ_unconstrained -&gt; (log p(θ, data), ∇ log p(θ, data))
+
+# ========================================
+# 3. Sampling
+# ========================================
+
+# Initialize in unconstrained space
+θ_init = model.link(model.sample_priors(rng))  # e.g., [-0.5, 4.6, 2.3, ...]
+
+# Sample (simplified pseudocode)
+for iteration in 1:10000
+    # Evaluate log posterior and gradient (HMC/NUTS)
+    lp, ∇lp = model.∇ℓπcallback(θ_current)
+
+    # The above call executes:
+    # θ_current (unconstrained)
+    #   → Bijector_invlinkvec → θ_natural (constrained)
+    #   → arr2nt → θ_structured (nested named tuple)
+    #   → ln_prior_transformed(θ_natural) → log prior
+    #   → ln_like_generated(system, θ_structured) → log likelihood
+    #   → return log prior + log likelihood
+
+    # HMC/NUTS update step
+    θ_current = nuts_step(θ_current, lp, ∇lp)
+end
+
+# ========================================
+# 4. Post-Processing
+# ========================================
+
+# Convert chain to named tuples for analysis
+chain_named = map(model.arr2nt ∘ model.invlink, eachrow(chain_array))
+
+# Access structured results
+for θ in chain_named
+    println(&quot;Planet b semi-major axis: &quot;, θ.planets.b.a)
+    println(&quot;Planet b periastron time: &quot;, θ.planets.b.tp)  # Derived variable!
+end</code></pre><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>Octofitter&#39;s architecture achieves high performance through aggressive compile-time specialization:</p><ol><li><strong>User writes</strong>: Declarative model specification (<code>@variables</code>, <code>Planet</code>, <code>System</code>)</li><li><strong>Octofitter generates</strong>: Specialized, type-stable functions for this specific model</li><li><strong>Sampler uses</strong>: Fast, allocation-efficient evaluation of log posterior and gradients</li><li><strong>User receives</strong>: Structured results with named parameters and derived quantities</li></ol></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../api/">« Full API Documentation</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.0 on <span class="colophon-date" title="Thursday 20 November 2025 19:00">Thursday 20 November 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
