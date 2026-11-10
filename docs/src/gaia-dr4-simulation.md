@@ -349,8 +349,24 @@ with each transit's along-scan residual re-projected along its own scan angle, w
 where the one-dimensional nature of a Gaia measurement becomes visible:
 
 ```@example 1
-Octofitter.gaiastarplot(sim_model, chain, 1)
+Octofitter.gaiastarplot(sim_model, chain, 1; ra=dr3.ra, dec=dr3.dec)
 ```
+
+The faint ellipse in the corner is the **annual parallax ellipse** for this direction,
+drawn the way a radio map carries its beam ellipse: not to scale, so it never competes
+with the reflex track, but with the true shape and orientation. Read the track against
+it — a wobble that runs along the ellipse's long axis is the one most easily confused
+with a parallax error, and near the ecliptic the ellipse degenerates to a line, so a
+one-dimensional scan geometry constrains far less than the picture suggests.
+
+!!! note "Why `ra=`/`dec=` here"
+    The ellipse needs the source's sky direction. This model, like most DR4 models,
+    samples only `plx` at the system level and keeps the position and proper motion in
+    the observation's variables as *offsets* — so there is no absolute `ra`/`dec` for
+    `gaiastarplot` to find, and it draws the panel without the annotation rather than
+    erroring. Pass `ra=`/`dec=` in degrees, or `gaia_id=` to look them up in DR3. A model
+    that does declare a full absolute frame (`plx, ra, dec, pmra, pmdec, rv, ref_epoch`
+    as system variables) gets the ellipse with no keyword at all.
 
 Finally, compare the recovered orbit against the truth: rebuild the
 `PlanetOrbits.System` for each draw with `construct_system` and plot the tracks directly,
