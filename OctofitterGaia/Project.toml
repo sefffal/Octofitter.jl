@@ -1,0 +1,33 @@
+name = "OctofitterGaia"
+uuid = "35d05277-e353-4c55-baa2-f502cec6d0bc"
+authors = ["William Thompson <will.thompson@outlook.com>"]
+version = "0.1.0-DEV"
+
+[deps]
+DataDeps = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Octofitter = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
+PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
+p7zip_jll = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+
+[compat]
+DataDeps = "0.7, 1"
+HDF5 = "0.17"
+LinearAlgebra = "1"
+# Octofitter / PlanetOrbits: the redesigned lines are Octofitter v9 and
+# PlanetOrbits v1. These bounds exclude the old registered v8 / 0.x line,
+# which otherwise resolves silently here and only fails at precompile time.
+Octofitter = "9"
+PlanetOrbits = "1"
+julia = "1.11"
+p7zip_jll = "17"
+
+[extras]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Distributions", "ForwardDiff", "Random"]
