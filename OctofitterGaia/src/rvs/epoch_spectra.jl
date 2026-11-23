@@ -228,13 +228,6 @@ Base.getindex(d::RVSEpochSpectra, inds::AbstractVector{<:Integer}) =
 # The mean model
 # ---------------------------------------------------
 
-# Catmull–Rom weights on a uniform grid for a point a fraction t past sample i.
-@inline function _cubic_weights(t)
-    t2 = t * t
-    t3 = t2 * t
-    return ((-t + 2t2 - t3) / 2, (2 - 5t2 + 3t3) / 2, (t + 4t2 - 3t3) / 2, (-t2 + t3) / 2)
-end
-
 # Add `weight` × one component, at velocity `v`, to the composite `m` and its
 # two velocity derivatives at the given bins. False if the shift takes a bin
 # off the fine grid.

@@ -98,6 +98,19 @@ function response_vector(p::Passband, edges; weight=λ -> 1.0, substep=0.01)
     return out
 end
 
+"""
+    wavenumber_range(passband) -> (ν_lo, ν_hi)
+
+The range of wavenumber [µm⁻¹] over which `passband` carries light: where
+its response is above 10⁻⁴ of the peak. The chromatic image model expands
+in Legendre polynomials of wavenumber mapped to [-1, 1] over this range, so
+the spectra's moments and the instrument's image basis must both use it.
+"""
+function wavenumber_range(p::Passband)
+    support = p.wavelength[p.response.>1e-4*maximum(p.response)]
+    return 1e3 / last(support), 1e3 / first(support)
+end
+
 "Magnitude of a photon rate [e⁻ s⁻¹] in `passband`'s Vega system."
 magnitude(p::Passband, rate) = -2.5 * log10(rate) + p.zp
 

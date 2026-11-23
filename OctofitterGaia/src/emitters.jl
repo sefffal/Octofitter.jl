@@ -135,9 +135,7 @@ end
 function SEDFunctionals(edges::AbstractVector; passbands=gaia_passbands(), degree::Integer=6)
     edges = collect(Float64, edges)
     G = passbands.G
-    # the part of the G band that carries light: above 10⁻⁴ of the peak
-    support = G.wavelength[G.response.>1e-4*maximum(G.response)]
-    ν_lo, ν_hi = 1e3 / last(support), 1e3 / first(support)
+    ν_lo, ν_hi = wavenumber_range(G)
     x(λ) = 2 * (1e3 / λ - ν_lo) / (ν_hi - ν_lo) - 1
     chroma = zeros(degree + 1, length(edges) - 1)
     for n in 0:degree

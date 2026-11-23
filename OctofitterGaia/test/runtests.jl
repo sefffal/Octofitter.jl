@@ -701,6 +701,72 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         @test 0 < rate(lo.teff, lo.logg, lo.mh, lo.radius, 50.0, 0.0) < rate(hi.teff, hi.logg, hi.mh, hi.radius, 50.0, 0.0)
     end
 
+    # GaiaTwin's wavefront optics are the stand-in instrument. The fixture holds
+    # the chromatic basis of one device built from its monochromatic images,
+    # and its own polychromatic images of two stars in an 18 × 12 window.
+    @testset "image basis against GaiaTwin" begin
+        path = joinpath(FIXTURES, "gaiatwin_image_fixture.h5")
+        basis = ImageBasis(path, "fov1_ccd5")
+        @test OG.nterms(basis) == 7
+        @test_throws ArgumentError ImageBasis(path, "fov3_ccd1")
+        # the instrument and the spectra expand over the same range of wavenumber
+        f = SEDFunctionals(lib)
+        @test collect(basis.wavenumber_range) ≈ collect(f.wavenumber_range)
+        @test collect(wavenumber_range(f.passbands.G)) == collect(f.wavenumber_range)
+        ref = OG.h5open(g -> (; (Symbol(k) => read(g["reference"][k]) for k in keys(g["reference"]))...), path)
+        ν_lo, ν_hi = basis.wavenumber_range
+        x = 2 .* (1 ./ ref.lam .- ν_lo) ./ (ν_hi - ν_lo) .- 1
+        moments(k, degree=6) = [n <= degree ? sum(ref.weights[:, k] .* OG._legendre.(n, x)) : 0.0 for n in 1:6]
+        image(k, c) = [image_fraction(basis, c, ref.w[i, j] - ref.position[1, k], ref.z[i, j] - ref.position[2, k]) for i in 1:18, j in 1:12]
+        centroid(a) = sum(a .* ref.w) / sum(a)
+        for k in 1:2
+            truth = ref.image[:, :, k]
+            img = image(k, moments(k))
+            # (2e-4 and 7e-4 of the peak with the product's 4 × 12 mas table; the fixture's is 12 × 30)
+            @test maximum(abs, img .- truth) < 2e-3 * maximum(truth)
+            @test sum(img) ≈ sum(truth) rtol = 1e-3
+            @test abs(centroid(img) - centroid(truth)) < 0.005                 # mas
+            # one colour is not enough, and none is far off
+            @test abs(centroid(image(k, moments(k, 1))) - centroid(truth)) > 0.015
+            @test abs(centroid(image(k, moments(k, 0))) - centroid(truth)) > 0.1
+        end
+        # the package's own spectra give nearly the moments GaiaTwin's do (5 nm against 30 nm bins)
+        sed = surface_sed!(zeros(OG.nbins(lib)), lib, 5800.0, 4.5, 0.0)
+        c = zeros(6)
+        chromatic_moments!(c, f, sed)
+        @test isapprox(c, moments(1); atol=0.02)
+        # the terms, and the fraction as their sum
+        t = image_terms!(zeros(7), basis, 37.0, -112.0)
+        @test image_fraction(basis, c, 37.0, -112.0) ≈ t[1] + dot(c, t[2:end])
+        @test t[1] > 0.02 && all(abs.(t[2:end]) .< t[1])
+        # zero beyond the table, in either direction
+        @test image_fraction(basis, c, 700.0, 0.0) == 0 && image_fraction(basis, c, 0.0, -1400.0) == 0
+        @test all(iszero, image_terms!(ones(7), basis, -700.0, 0.0))
+        @test_throws DimensionMismatch image_fraction(basis, zeros(3), 0.0, 0.0)
+        # continuous with continuous derivatives across the table's nodes (x = 36 mas, y = 60 mas are nodes)
+        g(v) = image_fraction(basis, c, v[1], v[2])
+        for v in ([36.0, 17.0], [5.0, 60.0])
+            e = [1e-7, 1e-7]
+            @test g(v .- e) ≈ g(v .+ e) rtol = 1e-6
+            @test ForwardDiff.gradient(g, v .- e) ≈ ForwardDiff.gradient(g, v .+ e) rtol = 1e-3
+        end
+        v = [21.3, -77.7]
+        gfd = [(g(v .+ h) - g(v .- h)) / 2e-4 for h in ([1e-4, 0.0], [0.0, 1e-4])]
+        @test ForwardDiff.gradient(g, v) ≈ gfd rtol = 1e-5
+        @test all(isfinite, ForwardDiff.gradient(m -> image_fraction(basis, m, 21.3, -77.7), c))
+        # a window: background plus each source's electrons times its own image
+        srcs = ntuple(k -> (; w=ref.position[1, k], z=ref.position[2, k], electrons=(4.0e5, 3.0e4)[k], moments=moments(k)), 2)
+        μ = window_mean!(zeros(18, 12), basis, ref.w, ref.z, 12.5, srcs)
+        @test μ ≈ 12.5 .+ 4.0e5 .* image(1, moments(1)) .+ 3.0e4 .* image(2, moments(2))
+        @test maximum(abs, μ .- (12.5 .+ 4.0e5 .* ref.image[:, :, 1] .+ 3.0e4 .* ref.image[:, :, 2])) < 2e-3 * 4.0e5 * maximum(ref.image[:, :, 1])
+        @test window_mean!(zeros(18, 12), basis, ref.w, ref.z, 0.0, (srcs[1],)) ≈ 4.0e5 .* image(1, moments(1))
+        # positions and fluxes as dual numbers
+        d = ForwardDiff.gradient(p -> sum(abs2, window_mean!(zeros(eltype(p), 18, 12), basis, ref.w, ref.z, p[1],
+                ((; w=p[2], z=p[3], electrons=p[4], moments=moments(1)),))), [12.5, 0.0, 0.0, 4.0e5])
+        @test all(isfinite, d) && all(!iszero, d)
+        @test_throws DimensionMismatch window_mean!(zeros(18, 11), basis, ref.w, ref.z, 0.0, srcs)
+    end
+
     @testset "in an Octofitter model" begin
         star = Star(evol, lib)
         rate_G = BandRate(star, :G)

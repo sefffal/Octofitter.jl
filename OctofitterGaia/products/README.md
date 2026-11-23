@@ -28,8 +28,21 @@ Teff, and record which nodes are real in `present`. The package interpolates
 only inside cells whose eight corners are real; the filled values give the
 cubic stencil its end slopes.
 
+## The image basis
+
+`build_image_basis_gaiatwin.jl <GaiaTwin checkout> <out.h5>` writes the
+chromatic image basis that `ImageBasis` reads, for the 2-D AF windows of
+both fields of view and the nine AF strips, from GaiaTwin's wavefront
+optics. It is the stand-in instrument until the basis is calibrated on DR4
+epoch images, and it needs a GaiaTwin checkout (the script sets up its own
+temporary environment). 68 MB at the default 4 × 12 mas sampling over
+±900 × ±1800 mas.
+
+## Fixtures
+
 The test fixtures are cut from the finished products by
-`../test/fixtures/make_fixtures.jl`.
+`../test/fixtures/make_fixtures.jl`, and those that hold GaiaTwin's own
+output by the `make_gaiatwin_*_fixture.jl` scripts beside it.
 
 The MIST evolution grid is not built here: it is a DataDep of the package,
 reduced from the distributed isochrones on first use

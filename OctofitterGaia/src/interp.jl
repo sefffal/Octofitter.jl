@@ -39,3 +39,11 @@
     end
     return (max(i - 1, 1), i, i + 1, min(i + 2, n)), (w0, w1, w2, w3), t
 end
+
+# Catmull–Rom weights on a uniform axis, for a point a fraction `t` of the
+# way from the second of four consecutive nodes to the third.
+@inline function _cubic_weights(t)
+    t2 = t * t
+    t3 = t2 * t
+    return ((-t + 2t2 - t3) / 2, (2 - 5t2 + 3t3) / 2, (t + 4t2 - 3t3) / 2, (-t2 + t3) / 2)
+end
