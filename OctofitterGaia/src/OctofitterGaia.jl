@@ -13,11 +13,18 @@ using PlanetOrbits
 using DataDeps
 using HDF5
 using LinearAlgebra
+import Bumper
+using Bumper: @no_escape, @alloc
 import p7zip_jll
 
+include("interp.jl")
+include("passbands.jl")
 include("evolution/mist.jl")
+include("spectra/library.jl")
+include("emitters.jl")
 
-export MISTGrid
+export MISTGrid, SpectralLibrary, Star, SEDFunctionals, BandRate
+export gaia_passbands, photon_rate, chromatic_moments!, surface_sed!, sed!, scene_points
 
 function __init__()
     register(DataDep("MIST_v1.2_vvcrit0.4",
@@ -30,7 +37,7 @@ function __init__()
                       Paxton et al. 2011, 2013, 2015 (MESA)
 
         Isochrones for [Fe/H] from -4 to +0.5 and ages from 10^5 to 10^10.3 yr.
-        After the download they are reduced to a 70 MB grid file and the
+        After the download they are reduced to a 40 MB grid file and the
         text tables are deleted.
 
         File size: 152MiB (1.1GiB while it is unpacked)

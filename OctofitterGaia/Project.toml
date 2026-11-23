@@ -4,6 +4,7 @@ authors = ["William Thompson <will.thompson@outlook.com>"]
 version = "0.1.0-DEV"
 
 [deps]
+Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 DataDeps = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -12,6 +13,7 @@ PlanetOrbits = "fd6f9641-d78f-43ce-a379-ceb0bddb468a"
 p7zip_jll = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 
 [compat]
+Bumper = "0.7.0"
 DataDeps = "0.7, 1"
 HDF5 = "0.17"
 LinearAlgebra = "1"

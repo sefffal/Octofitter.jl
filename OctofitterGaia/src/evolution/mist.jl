@@ -7,24 +7,28 @@
 # Each isochrone already carries MIST's own interpolation in mass; what is
 # added here is the interpolation between ages and metallicities, and the
 # question is which point of one isochrone corresponds to which point of its
-# neighbour. There are two answers, each right in one regime:
+# neighbour.
 #
 #   - Evolved stars: the same EEP. Stars at the same EEP are at the same
 #     stage of their evolution, whereas at fixed mass a star can be on the
 #     main sequence at one age node and a giant at the next (the whole
 #     post-main-sequence of an old isochrone spans about 0.02 dex of mass).
-#   - Unevolved stars: the same mass. Below about 0.35 M☉ a star never
+#   - Unevolved stars: not the same EEP. Below about 0.35 M☉ a star never
 #     reaches the intermediate-age main sequence, its EEPs are spread
 #     between the zero-age main sequence and wherever its track happened to
 #     stop, and the numbering is not comparable between metallicities: at
 #     10 Gyr a 0.2 M☉ star is at EEP 255 for [Fe/H] = 0, 220 for +0.25 and
 #     244 for +0.5, with all of 0.1–0.27 M☉ inside one EEP at +0.25.
 #
-# So the lookup evaluates both and blends them on the EEP itself: fixed mass
-# up to the intermediate-age main sequence (EEP 353), fixed EEP from the
-# terminal-age main sequence (EEP 454) on, a smooth step in between. On a
-# node of the age and metallicity axes both reduce to that node's isochrone,
-# so the result is continuous everywhere.
+# So each isochrone is given one coordinate ξ that is the EEP from the
+# intermediate-age main sequence (IAMS, EEP 353) on, and below it the
+# fractional position in log mass between the isochrone's first point and
+# its IAMS point. Isochrones are interpolated at fixed ξ, and ξ is then
+# found from the mass. Below the IAMS that compares stars at the same
+# fraction of the way from the bottom of the main sequence to the IAMS mass,
+# which for neighbouring isochrones is very nearly the same mass. There is
+# one correspondence and no switch, so the result is continuous everywhere,
+# and exact on the nodes of the age and metallicity axes.
 #
 # Only theoretical quantities are used by the model. MIST's own Gaia
 # magnitudes are kept in the grid file for one purpose, the check that
@@ -41,8 +45,7 @@ const LOGG_SUN = log10(1.3271244e26 / 6.957e10^2)   # cgs; GM☉ / R☉²
 # an isochrone (Wolf–Rayet points sit among the core-helium-burning ones).
 const MIST_LAST_EEP = 1408
 # The tables number EEPs from 0; array index = EEP + 1.
-const MIST_EEP_IAMS = 353.0     # intermediate-age main sequence
-const MIST_EEP_TAMS = 454.0     # terminal-age main sequence
+const MIST_EEP_IAMS = 353         # intermediate-age main sequence
 
 """
     MISTGrid
@@ -60,9 +63,12 @@ is what a model atmosphere should be looked up at. Outside the grid, or for
 a star that has evolved past the AGB tip at that age, every field is `NaN`.
 
 Interpolation between isochrones is cubic (Catmull–Rom) in `log age` and
-`[Fe/H]`, at fixed mass on the main sequence and at fixed EEP beyond it;
-along an isochrone it is linear in log mass between adjacent EEPs. The
-result is continuous, and works with `ForwardDiff` duals.
+`[Fe/H]`, at fixed EEP from the intermediate-age main sequence on and at a
+fixed fraction of the way to it in log mass below; along an isochrone it is
+linear in log mass between adjacent EEPs. The result is continuous, and
+works with `ForwardDiff` duals. `eep` is the EEP for evolved stars; below
+the intermediate-age main sequence it is a smooth label with no meaning of
+its own.
 
 With no argument the grid is read from the `MIST_v1.2_vvcrit0.4` DataDep,
 which downloads the isochrones (160 MB) and builds the grid on first use.
@@ -110,51 +116,13 @@ function mist_magnitudes(g::MISTGrid)
     end
 end
 
-# Catmull–Rom stencil on a sorted, possibly non-uniform axis: four node
-# indices and their weights, interpolating and C¹. Tangents are the
-# three-point parabola derivatives, one-sided at the ends of the axis, where
-# the unused index is clamped and carries zero weight. `nothing` outside.
-@inline function _stencil(nodes::Vector{Float64}, x)
-    n = length(nodes)
-    (x >= nodes[1] && x <= nodes[n]) || return nothing
-    i = min(searchsortedlast(nodes, x), n - 1)
-    @inbounds x1, x2 = nodes[i], nodes[i+1]
-    d1 = x2 - x1
-    t = (x - x1) / d1
-    h00 = (2t - 3) * t^2 + 1
-    h10 = ((t - 2) * t + 1) * t
-    h01 = (3 - 2t) * t^2
-    h11 = (t - 1) * t^2
-    w0, w1, w2, w3 = zero(t), h00, h01, zero(t)
-    if i > 1
-        d0 = x1 - @inbounds nodes[i-1]
-        w0 -= h10 * d1 * d1 / (d0 * (d0 + d1))
-        w1 += h10 * (d1 - d0) / d0
-        w2 += h10 * d0 / (d0 + d1)
-    else
-        w1 -= h10
-        w2 += h10
-    end
-    if i < n - 1
-        d2 = @inbounds(nodes[i+2]) - x2
-        w1 -= h11 * d2 / (d1 + d2)
-        w2 += h11 * (d2 - d1) / d2
-        w3 += h11 * d1 * d1 / (d2 * (d1 + d2))
-    else
-        w1 -= h11
-        w2 += h11
-    end
-    return (max(i - 1, 1), i, i + 1, min(i + 2, n)), (w0, w1, w2, w3)
-end
-
-# Position of log mass `lm` along one stored isochrone: the index of the
-# lower EEP and the fraction towards the next. An index of 0 means the mass
-# is below the isochrone's first point, -1 that it is above its last (the
-# star is dead at that age).
-@inline function _along(g::MISTGrid, k, j, lm)
-    @inbounds lo, hi = g.eep_lo[k, j], g.eep_hi[k, j]
-    @inbounds lm < g.log_mass[lo, k, j] && return 0, zero(lm)
-    @inbounds lm > g.log_mass[hi, k, j] && return -1, zero(lm)
+# Position of log mass `lm` along one stored isochrone between the EEP
+# indices `lo` and `hi`: the index of the lower EEP and the fraction towards
+# the next. `lm` must lie between the masses at `lo` and `hi`; it is clamped
+# to them, which only matters for rounding at the two ends.
+@inline function _along(g::MISTGrid, k, j, lo, hi, lm)
+    @inbounds lm <= g.log_mass[lo, k, j] && return lo, zero(lm)
+    @inbounds lm >= g.log_mass[hi, k, j] && return hi - 1, one(lm)
     a, b = lo, hi
     @inbounds while b - a > 1
         m = (a + b) >>> 1
@@ -175,63 +143,61 @@ function (g::MISTGrid)(mass, logage, feh)
     sa = _stencil(g.log_age, logage)
     sf = _stencil(g.feh, feh)
     (sa === nothing || sf === nothing || !(mass > 0)) && return dead
-    ks, was = sa
-    js, wfs = sf
+    ks, was, _ = sa
+    js, wfs, _ = sf
     lm = log10(mass)
+    anchor = MIST_EEP_IAMS + 1                  # array index of the IAMS
 
-    # --- fixed mass: each neighbouring isochrone evaluated at this mass
-    alive = true
-    estar = T(-Inf)                       # the most evolved of the neighbours
-    m_teff = m_logg = m_logL = m_mh = m_eep = zero(T)
+    # The neighbouring isochrones' first points and anchor points, blended.
+    # A zero weight marks an index clamped at the end of an axis.
+    lm_first = lm_anchor = zero(T)
+    hi = size(g.log_mass, 1)                    # last EEP every neighbour has
     for ia in 1:4, jf in 1:4
         (iszero(was[ia]) || iszero(wfs[jf])) && continue
         k, j = ks[ia], js[jf]
-        e, s = _along(g, k, j, lm)
-        e == 0 && return dead
-        if e == -1
-            alive = false
-            continue
-        end
         w = was[ia] * wfs[jf]
         @inbounds begin
-            m_teff += w * ((1 - s) * g.log_teff[e, k, j] + s * g.log_teff[e+1, k, j])
-            m_logg += w * ((1 - s) * g.logg[e, k, j] + s * g.logg[e+1, k, j])
-            m_logL += w * ((1 - s) * g.log_L[e, k, j] + s * g.log_L[e+1, k, j])
-            m_mh += w * ((1 - s) * g.feh_surf[e, k, j] + s * g.feh_surf[e+1, k, j])
+            lm_first += w * g.log_mass[g.eep_lo[k, j], k, j]
+            lm_anchor += w * g.log_mass[min(anchor, g.eep_hi[k, j]), k, j]
+            hi = min(hi, g.eep_hi[k, j])
         end
-        m_eep += w * (e - 1 + s)
-        estar = max(estar, e - 1 + s)
     end
-    wE = if alive
-        t = clamp((estar - MIST_EEP_IAMS) / (MIST_EEP_TAMS - MIST_EEP_IAMS), 0, 1)
-        t^2 * (3 - 2t)
-    else
-        one(T)
-    end
+    lm >= lm_first || return dead
 
-    # --- fixed EEP: the neighbouring isochrones blended EEP by EEP, and the
-    # EEP then found from the mass
-    e_teff = e_logg = e_logL = e_mh = e_eep = zero(T)
-    if !iszero(wE)
-        lo, hi = 1, size(g.log_mass, 1)
+    log_teff = logg = logL = mh = eep = zero(T)
+    if lm <= lm_anchor
+        # Below the IAMS: each neighbour at the same fraction of the way, in
+        # log mass, from its anchor down to its first point.
+        f = lm_anchor > lm_first ? (lm_anchor - lm) / (lm_anchor - lm_first) : zero(T)
         for ia in 1:4, jf in 1:4
             (iszero(was[ia]) || iszero(wfs[jf])) && continue
-            @inbounds lo = max(lo, g.eep_lo[ks[ia], js[jf]])
-            @inbounds hi = min(hi, g.eep_hi[ks[ia], js[jf]])
+            k, j = ks[ia], js[jf]
+            w = was[ia] * wfs[jf]
+            @inbounds lo, top = g.eep_lo[k, j], min(anchor, g.eep_hi[k, j])
+            @inbounds target = (1 - f) * g.log_mass[top, k, j] + f * g.log_mass[lo, k, j]
+            e, s = _along(g, k, j, lo, top, target)
+            @inbounds begin
+                log_teff += w * ((1 - s) * g.log_teff[e, k, j] + s * g.log_teff[e+1, k, j])
+                logg += w * ((1 - s) * g.logg[e, k, j] + s * g.logg[e+1, k, j])
+                logL += w * ((1 - s) * g.log_L[e, k, j] + s * g.log_L[e+1, k, j])
+                mh += w * ((1 - s) * g.feh_surf[e, k, j] + s * g.feh_surf[e+1, k, j])
+            end
+            eep += w * (e - 1 + s)
         end
-        lo < hi || return dead
+    else
+        # From the IAMS on: the neighbours blended EEP by EEP, and the EEP
+        # then found from the mass, which rises along an isochrone.
+        anchor < hi || return dead
         blend(arr, e) = begin
             acc = zero(T)
             for ia in 1:4, jf in 1:4
-                # a zero weight marks a clamped index, whose isochrone may
-                # not reach this EEP
                 (iszero(was[ia]) || iszero(wfs[jf])) && continue
                 @inbounds acc += was[ia] * wfs[jf] * arr[e, ks[ia], js[jf]]
             end
             acc
         end
-        (lm >= blend(g.log_mass, lo) && lm <= blend(g.log_mass, hi)) || return dead
-        a, b = lo, hi
+        lm <= blend(g.log_mass, hi) || return dead      # past the AGB tip
+        a, b = anchor, hi
         while b - a > 1
             m = (a + b) >>> 1
             if blend(g.log_mass, m) <= lm
@@ -242,20 +208,18 @@ function (g::MISTGrid)(mass, logage, feh)
         end
         la, lb = blend(g.log_mass, a), blend(g.log_mass, b)
         s = lb > la ? (lm - la) / (lb - la) : zero(T)
-        e_teff = (1 - s) * blend(g.log_teff, a) + s * blend(g.log_teff, b)
-        e_logg = (1 - s) * blend(g.logg, a) + s * blend(g.logg, b)
-        e_logL = (1 - s) * blend(g.log_L, a) + s * blend(g.log_L, b)
-        e_mh = (1 - s) * blend(g.feh_surf, a) + s * blend(g.feh_surf, b)
-        e_eep = a - 1 + s
+        log_teff = (1 - s) * blend(g.log_teff, a) + s * blend(g.log_teff, b)
+        logg = (1 - s) * blend(g.logg, a) + s * blend(g.logg, b)
+        logL = (1 - s) * blend(g.log_L, a) + s * blend(g.log_L, b)
+        mh = (1 - s) * blend(g.feh_surf, a) + s * blend(g.feh_surf, b)
+        eep = a - 1 + s
     end
 
-    mix(m, e) = iszero(wE) ? m : isone(wE) ? e : (1 - wE) * m + wE * e
-    log_teff, logg, logL = mix(m_teff, e_teff), mix(m_logg, e_logg), mix(m_logL, e_logL)
     teff = exp10(log_teff)
     radius = exp10(logL / 2) * (TEFF_SUN / teff)^2
     mass_now = exp10(logg - LOGG_SUN) * radius^2
-    return (; teff=T(teff), logg=T(logg), radius=T(radius), mass_now=T(mass_now),
-        mh=T(mix(m_mh, e_mh)), logL=T(logL), eep=T(mix(m_eep, e_eep)))
+    return (; teff=T(teff), logg=T(logg), radius=T(radius), mass_now=T(mass_now), mh=T(mh),
+        logL=T(logL), eep=T(eep))
 end
 
 # ---------------------------------------------------
