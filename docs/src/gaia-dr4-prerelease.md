@@ -358,6 +358,124 @@ prior.
 `system_interim`, [`anchor_offsets`](@ref), the Jacobian — and [`AnchoredFrame`](@ref)
 packages these lines for observation types that keep the frame in the system block.
 
+### [The absolute frame: perspective acceleration and wide pairs](@id dr4-prerelease-absolute)
+
+The models above use a *parallax-only* frame: the observation's reference point moves in
+a straight line on the tangent plane, at a constant parallax. That is right for Gaia-4.
+It leaves out what a full 3D propagation adds:
+
+- **Perspective acceleration.** A star's radial velocity changes its distance, and with
+  it the proper motion and parallax. Over the DR4 window this is about 5 mas for
+  Barnard's star, against per-transit errors of 0.05–0.1 mas.
+- **The change of parallax with distance.** About 0.18 mas across DR4 for Barnard's
+  star.
+- **Wide pairs.** The two resolved components of a wide pair are two DR4 sources, each
+  arcseconds from the barycentre and each with its own tangent point. They have to be
+  placed on the sphere and projected exactly. A first-order sum of tangent-plane offsets
+  is wrong by about 0.4–0.8 mas for a 300 au pair at 13.5 pc and δ = 70°.
+
+Define the full absolute frame (`plx, ra, dec, pmra, pmdec, rv, ref_epoch`) in the system
+block, and `GaiaDR4AstromObs` takes its reference point from it.
+
+**The absolute frame is Gaia DR4's.** The system's `ra`, `dec`, `pmra` and `pmdec` are
+the barycentre's position and proper motion *in the DR4 frame* at `ref_epoch`, so the
+DR4 observation has no zero-point offset of its own. Other absolute datasets in the same
+model carry their offsets to DR4, the way every clock is converted into one reference
+timescale. (`G23HObs`, whose catalogues are in the DR3 frame, does not carry one yet.)
+
+Three things change in the observation:
+
+- It declares **no** reference-point variables. `ra_offset_mas`, `dec_offset_mas`,
+  `pmra`, `pmdec` and `ref_epoch` belong to the system now, and declaring any of them is
+  an error at build time.
+- It needs the **tangent point** `(ra0, dec0)` that `centroid_pos_al` is counted from.
+  DR4 epoch tables carry it as columns. The CSVs in this tutorial record it in their
+  header, so pass it as `tangent_point`.
+- Its `ref` must be `Barycentre`, because the frame describes the barycentre.
+
+The DR4 position is known to a fraction of a mas, while `ra` and `dec` are in degrees.
+Sample mas offsets from a catalogue position (the tangent point is a convenient one) and
+derive the angles from them. The derived `ra` and `dec` are what the frame is built
+from:
+
+```julia
+const RA0, DEC0 = 209.506326888, 31.695499700   # Gaia-4's tangent point (CSV header)
+
+gaia_obs = GaiaDR4AstromObs(
+    transit_level_data,
+    target = Photocentre,
+    ref    = Barycentre,
+    name   = "GaiaDR4",
+    tangent_point = (RA0, DEC0),
+    variables = @variables begin
+        astrometric_jitter ~ LogUniform(0.00001, 10)   # mas; nothing else lives here now
+    end
+)
+
+sys = System(
+    name = "Gaia4",
+    bodies = [A, b],
+    observations = [gaia_obs],
+    variables = @variables begin
+        plx ~ Uniform(0, 100)
+        # The barycentre's DR4 position at ref_epoch, as mas offsets from the tangent point…
+        Δra_mas  ~ Normal(0, 1000)
+        Δdec_mas ~ Normal(0, 1000)
+        # …and the angles the frame is built from, derived from them.
+        ra  = $RA0 + Δra_mas / (3.6e6 * cosd($DEC0))
+        dec = $DEC0 + Δdec_mas / 3.6e6
+        pmra  ~ Uniform(-1000, 1000)   # mas/yr
+        pmdec ~ Uniform(-1000, 1000)
+        rv ~ Normal(0, 50_000)         # m/s; reaches the data through perspective acceleration
+        ref_epoch = $REF_EPOCH_MJD
+    end
+)
+```
+
+`rv` is the barycentre's radial velocity. Without RV data it is constrained only through
+perspective acceleration, which is negligible for Gaia-4 but not for a fast, nearby star.
+An RV likelihood in the same model constrains it directly.
+
+#### Two sources, one frame
+
+The components of a resolved wide pair are two `GaiaDR4AstromObs`, one per DR4 source,
+each against its own tangent point. They need nothing tied together. Both read the one
+frame, so the model predicts their separation and relative motion, and the data
+constrain them. To keep the sampler off the frame–orbit ridge described
+[above](@ref dr4-prerelease-anchored), anchor the frame to one component with
+[`AnchoredFrame`](@ref). Its anchor position takes the same mas-offset form:
+
+```julia
+obs_A = GaiaDR4AstromObs(transits_A; target = A, ref = Barycentre, name = "DR4_A",
+                         tangent_point = (RA0_A, DEC0_A))
+obs_B = GaiaDR4AstromObs(transits_B; target = B, ref = Barycentre, name = "DR4_B",
+                         tangent_point = (RA0_B, DEC0_B))
+
+sys = System(
+    name = "wide pair",
+    bodies = [A, B],
+    observations = [obs_A, obs_B],
+    variables = AnchoredFrame(A; ref_epoch = REF_EPOCH_MJD, variables = @variables begin
+        # A's own DR4 position, as mas offsets from its catalogue position…
+        Δra_A  ~ Normal(0, 1000)
+        Δdec_A ~ Normal(0, 1000)
+        ra_A  = $RA0_A + Δra_A / (3.6e6 * cosd($DEC0_A))
+        dec_A = $DEC0_A + Δdec_A / 3.6e6
+        # …and the rest of A's solution. AnchoredFrame derives the barycentre's from these.
+        plx_A   ~ Uniform(0, 200)
+        pmra_A  ~ Uniform(-2000, 2000)
+        pmdec_A ~ Uniform(-2000, 2000)
+        rv_A    ~ Normal(0, 50_000)
+    end)
+)
+```
+
+Each source's position is its excursion from the barycentre, composed with the frame on
+the sphere and projected about that source's own tangent point. Its parallax is its own,
+`1000 / (d + Δz)`. If a component is itself an unresolved binary, make its `target` a
+photocentre over that pair, e.g. `Photocentre(:G, (Aa, Ab))`. The test suite runs this
+example on simulated tables (`test/v2/gaia-dr4-frame.jl`).
+
 ## Initializing and sampling
 
 ```julia

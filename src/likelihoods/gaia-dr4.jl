@@ -28,6 +28,14 @@
 #     epoch-dependent parallax, the light-time terms — never reached the DR4
 #     likelihood: the reference point was the straight line even when the
 #     system carried the full frame.
+#
+# Under the absolute frame the excursion (gnomonic about the barycentre's
+# direction, as PlanetOrbits reports it) is not *added* to the projected
+# barycentre: the two are coordinates in different tangent planes, and the
+# sum is wrong by ~ |excursion| · |offset from the tangent point| · tan δ —
+# mas for an arcsecond-scale photocentre–barycentre separation. The source's
+# direction is rebuilt on the sphere and projected about the tangent point
+# instead (`_dr4_project`), and its parallax is its own (`_dr4_source_plx`).
 # ---------------------------------------------------
 
 """
@@ -81,32 +89,53 @@ tangent point and the barycentre, and no tangent point is needed.
 
 **Absolute frame** (`plx, ra, dec, pmra, pmdec, rv, ref_epoch` in the system
 block). The system block owns the barycentre's position and motion, and
-PlanetOrbits propagates it rigorously in 3D. The reference point is then the
-barycentre's propagated apparent direction at each transit,
-`(frame_ra(sol), frame_dec(sol))`, projected **gnomonically** about the
-tangent point `(ra0, dec0)` that DR4's `centroid_pos_al` is counted from,
-and the parallax term uses the barycentre's parallax *at that epoch*,
-`1000 / d(t)` [mas] for its propagated distance `d(t)` [pc]:
+PlanetOrbits propagates it rigorously in 3D. At each transit the modelled
+point is the `target`'s apparent direction — the barycentre's propagated
+direction `(frame_ra(sol), frame_dec(sol))` displaced on the sphere by the
+target's excursion from it — projected **gnomonically** about the tangent
+point `(ra0, dec0)` that DR4's `centroid_pos_al` is counted from. The
+parallax term uses the target's own parallax *at that epoch*,
+`1000 / (d(t) + Δz)` [mas] for the barycentre's propagated distance `d(t)`
+and the target's line-of-sight offset `Δz` from it:
 
-    (Δα*, Δδ) = gnomonic(frame_ra, frame_dec; about = (ra0, dec0))   [mas]
-    ϖ         = ϖ(t)
+    (Δα*, Δδ) = gnomonic(direction of target; about = (ra0, dec0))   [mas]
+    ϖ         = ϖ_target(t)
 
 So perspective acceleration (≈ 5 mas over DR4 for Barnard's star), the
 change of parallax with distance (≈ 0.18 mas across the DR4 window for
 Barnard's star, ±0.09 mas about the reference epoch), and — when
 `barycentric_lighttime` is on — the light-time terms all reach the
-abscissae. The system's `plx` is the parallax at the frame's `ref_epoch`.
+abscissae. The system's `plx` is the barycentre's parallax at the frame's
+`ref_epoch`.
+
+**The absolute frame is Gaia DR4's.** The system's `ra`, `dec`, `pmra`,
+`pmdec` are the barycentre's position and proper motion *in the DR4 frame*
+at `ref_epoch`, so this observation has no zero-point offset of its own.
+Other absolute datasets in the same model (Hipparcos, earlier Gaia releases,
+HST/FGS) carry their offsets *to* DR4 — the same arrangement as a single
+reference timescale with every other clock converted into it. (`G23HObs`
+does not yet carry a DR3→DR4 offset.) Several DR4 sources in one system —
+the two components of a resolved wide pair, say — therefore share the frame
+with nothing to tie, and their relative astrometry is kept whole.
 
 Under an absolute frame the observation's reference-point variables
 (`ra_offset_mas`, `dec_offset_mas`, `pmra`, `pmdec`, `ref_epoch`) must **not**
-be declared, and the model refuses to build if any is. The frame already
-carries the barycentre's position and proper motion; a second set here would
-either double count the motion or silently override the frame — the same
-rule `G23HObs` follows, where the system owns proper motion whenever it has
-an absolute frame. A zero-point offset between the frame and DR4 belongs in
-the system's `ra`/`dec`, which are free parameters like any other. For the
-same reason `ref` must be the whole-system `Barycentre`: the frame describes
-the barycentre, so the excursion has to be measured from it.
+be declared, and the model refuses to build if any is: a second position or
+proper motion here would either double count the motion or silently override
+the frame, the same rule `G23HObs` follows for proper motion. `ref` must be
+the whole-system `Barycentre`, because the frame describes the barycentre and
+the excursion has to be measured from it.
+
+The DR4 position is known only to a fraction of a mas, while the system's
+`ra`/`dec` are in degrees. Write them as mas offsets from a catalogue
+position (the tangent point is a convenient one) and derive the angles:
+
+    Δra_mas  ~ Normal(0, 1000)
+    Δdec_mas ~ Normal(0, 1000)
+    ra  = \$ra0 + Δra_mas / (3.6e6 * cosd(\$dec0))
+    dec = \$dec0 + Δdec_mas / 3.6e6
+
+The same goes for the anchor variables of an [`AnchoredFrame`](@ref).
 
 The tangent point is a property of the data, not a parameter: it comes from
 the table's `ra0`/`dec0` columns (which DR4 repeats on every row of a source,
@@ -114,12 +143,15 @@ and which must therefore be constant) or from `tangent_point=(ra0, dec0)`.
 It is required under an absolute frame and ignored otherwise; giving both
 the columns and the keyword with different values is an error.
 
-The photocentre excursion is added to the projected barycentre in the
-barycentre's own local axes, and `detrend` acts on that excursion exactly as
-under a parallax-only frame. The difference between the barycentre's local
-axes and the tangent point's is a rotation by the barycentre's offset from
-the tangent point (≲ 10⁻⁴ rad for Barnard's star over DR4), which on a
-milliarcsecond excursion is sub-µas.
+The excursion PlanetOrbits reports (`raoff`/`decoff` from the barycentre)
+is a pair of gnomonic coordinates about the barycentre's direction. It is
+turned back into a direction on the sphere and *that* is projected about the
+tangent point — exactly, with no small-angle step. Simply adding it to the
+projected barycentre would mix two tangent planes, an error of order
+`|excursion| · |barycentre − tangent point| · tan δ`: sub-µas for a compact
+orbit, but 7 µas for a 1″ excursion at δ = 41° and ~2 mas for 20″, i.e. for
+the resolved components of a wide pair. `detrend` acts on the excursion
+before that step, exactly as under a parallax-only frame.
 
 # Parallax factors
 `f_al` is Gaia's own `parallax_factor_al`, taken at face value: this
@@ -134,6 +166,13 @@ which is `≈ 4.85 · z[AU] / d[pc]²` µas per AU of observer displacement. For
 any DR4 target that is sub-µas, well below the per-transit precision, so the
 face-value factors are exact enough. PlanetOrbits' observer-aware
 observables exist for the cases where it is not.
+
+What *is* kept under an absolute frame is the target's own distance: the
+parallax multiplying `f_al` is the target's, `1000 / (d + Δz)`, not the
+barycentre's. The difference is `≈ ϖ² Δz / 2.06×10⁸` mas — 1e-8 of the
+parallax for a planet an AU out, ~1e-4 for a component of a few-hundred-au
+pair at 13 pc. Under a parallax-only frame the system's constant `plx` is
+used, as before.
 
 # `detrend`
 With `detrend=true` the linear (constant + slope) part of the
@@ -230,9 +269,10 @@ struct GaiaDR4AstromObs{TTable<:Table,TT,TR} <: AbstractObs
     # reference point is the frame's direction projected about it; a
     # parallax-only model never touches it. See `_dr4_tangent_point`.
     tangent_point::Union{Nothing,NTuple{2,Float64}}
-    # (sin dec0, cos dec0), hoisted for the same reason as `sinψ`/`cosψ`:
-    # data, not per-sample work. NaN when there is no tangent point.
-    sincos_dec0::NTuple{2,Float64}
+    # The tangent point's unit vector and local east/north axes, (u0, e_α0,
+    # e_δ0) flattened, hoisted for the same reason as `sinψ`/`cosψ`: data,
+    # not per-sample work. NaN when there is no tangent point.
+    tangent_basis::NTuple{9,Float64}
 end
 
 const dr4_cols = (:epoch, :scan_pos_angle, :parallax_factor_al,
@@ -338,12 +378,12 @@ function GaiaDR4AstromObs(observations;
     invσ² = w ./ σ²
     lognorm0 = -sum(w .* log.(2π .* σ²)) / 2
     tp = _dr4_tangent_point(table, tangent_point)
-    sincos_dec0 = tp === nothing ? (NaN, NaN) : sincosd(tp[2])
+    tangent_basis = tp === nothing ? ntuple(_ -> NaN, 9) : _dr4_tangent_basis(tp...)
     return GaiaDR4AstromObs{typeof(table),typeof(t),typeof(r)}(
         table, priors, derived, t, r, String(name), detrend,
         Δt, 1.0 / length(ep), 1.0 / sum(Δt .^ 2),
         sinψ, cosψ, w, b_al, σ², invσ², sum(w), lognorm0,
-        tp, sincos_dec0)
+        tp, tangent_basis)
 end
 
 export GaiaDR4AstromObs
@@ -374,9 +414,12 @@ function check_siblings(obs::GaiaDR4AstromObs, @nospecialize(all_obs), ctx)
         refused rather than silently resolved one way.
 
         Remove $(join(("`" .* string.(clash) .* "`"), ", ")) from this observation's \
-        `variables`. A zero-point offset between the frame and DR4 is already a free \
-        parameter: the system's `ra`/`dec`. To keep the linear reference-point model \
-        instead, define `plx` alone in the system block (a parallax-only frame).
+        `variables`. The absolute frame is DR4's own: the system's `ra`/`dec` are the \
+        barycentre's DR4 position, so there is no separate DR4 zero point to fit. \
+        Write them as mas offsets from a catalogue position, e.g. \
+        `Δra_mas ~ Normal(0, 1000)`, `ra = \$ra0 + Δra_mas / (3.6e6 * cosd(\$dec0))`. \
+        To keep the linear reference-point model instead, define `plx` alone in the \
+        system block (a parallax-only frame).
         """)
     obs.tangent_point === nothing && error("""
         System $(ctx.name): GaiaDR4AstromObs "$(obs.name)" has no tangent point, and the \
@@ -417,35 +460,63 @@ end
 const _DR4_RAD2MAS = rad2deg(1.0) * 3_600_000
 
 """
-Gnomonic (local-plane) coordinates `(ξ, η)` [mas] of the direction `(α, δ)`
-[deg] about the tangent point `(α0, δ0)`, given `sin δ0`, `cos δ0`:
-
-    D = sin δ sin δ0 + cos δ cos δ0 cos(α − α0)
-    ξ = cos δ sin(α − α0) / D
-    η = (sin δ cos δ0 − cos δ sin δ0 cos(α − α0)) / D
-
-the standard tangent-plane projection, with ξ toward increasing α and η
-toward increasing δ — the axes ψ is measured in. The DR4 data model defines
-`ra0`/`dec0` as the tangent point "from which the local plane coordinates
-centroid_pos_al and centroid_pos_ac are counted".
-
-`sincosd` reduces its argument exactly on the degree scale, so an `α − α0`
-that straddles 0°/360° needs no wrapping. In η the two terms are O(1) and
-their difference is the few-arcsecond offset; the cancellation costs ~1e-16
-rad, i.e. ~2e-8 mas, so the well-conditioned rewrite would buy nothing
-measurable.
+The unit vector `u0` of the tangent point `(α0, δ0)` [deg] and its local
+east and north axes `e_α0`, `e_δ0`, flattened as a 9-tuple — the basis
+[`_dr4_project`](@ref) projects onto.
 """
-@inline function _dr4_gnomonic(α, δ, α0, sinδ0, cosδ0)
-    sΔα, cΔα = sincosd(α - α0)
-    sδ, cδ = sincosd(δ)
-    cδcΔα = cδ * cΔα
-    scale = _DR4_RAD2MAS / (sδ * sinδ0 + cδcΔα * cosδ0)
-    return (cδ * sΔα * scale, (sδ * cosδ0 - cδcΔα * sinδ0) * scale)
+function _dr4_tangent_basis(α0, δ0)
+    sα, cα = sincosd(α0)
+    sδ, cδ = sincosd(δ0)
+    return (cδ * cα, cδ * sα, sδ,          # u0
+            -sα, cα, 0.0,                  # e_α0, toward increasing α
+            -sδ * cα, -sδ * sα, cδ)        # e_δ0, toward increasing δ
 end
 
 """
-The system barycentre's parallax at this solution's epoch [mas]:
-`1000 / d(t)` for its propagated distance `d(t)` [pc].
+    _dr4_project(α, δ, x, y, basis)
+
+Gnomonic coordinates `(ξ, η)` [mas] about the tangent point of the direction
+whose gnomonic coordinates about `(α, δ)` [deg] are `(x, y)` [mas]. `basis`
+is the tangent point's [`_dr4_tangent_basis`](@ref).
+
+Gnomonic coordinates are central projection: `(x, y)` about a direction `u`
+with local axes `e_α`, `e_δ` name the ray through `u + x e_α + y e_δ` (x, y in
+radians). Projecting that ray about the tangent point is
+
+    ξ = (r ⋅ e_α0) / (r ⋅ u0),   η = (r ⋅ e_δ0) / (r ⋅ u0)
+
+and the normalization of `r` cancels. Both steps are exact, so the result is
+the target's gnomonic position about the tangent point whatever the size of
+the excursion or of the barycentre's offset from the tangent point — the
+first-order alternative, `gnomonic(α, δ) + (x, y)`, mixes two tangent planes
+and is wrong by `~ |(x, y)| ⋅ |(α, δ) − (α0, δ0)| ⋅ tan δ` (see the
+"Reference point" section of [`GaiaDR4AstromObs`](@ref)). With `x = y = 0` it
+is the gnomonic projection of `(α, δ)` itself.
+
+ξ points toward increasing α and η toward increasing δ — the axes ψ is
+measured in. The DR4 data model defines `ra0`/`dec0` as the tangent point
+"from which the local plane coordinates centroid_pos_al and centroid_pos_ac
+are counted". `r ⋅ e_α0` and `r ⋅ e_δ0` are differences of O(1) products
+whose result is the arcsecond-scale offset; the cancellation costs ~1e-16
+rad, i.e. ~2e-8 mas.
+"""
+@inline function _dr4_project(α, δ, x, y, basis)
+    sα, cα = sincosd(α)
+    sδ, cδ = sincosd(δ)
+    xr = x / _DR4_RAD2MAS
+    yr = y / _DR4_RAD2MAS
+    # r = u + x e_α + y e_δ, unnormalized.
+    rx = cδ * cα - xr * sα - yr * sδ * cα
+    ry = cδ * sα + xr * cα - yr * sδ * sα
+    rz = sδ + yr * cδ
+    u0x, u0y, u0z, ax, ay, az, dx, dy, dz = basis
+    scale = _DR4_RAD2MAS / (rx * u0x + ry * u0y + rz * u0z)
+    return ((rx * ax + ry * ay + rz * az) * scale,
+            (rx * dx + ry * dy + rz * dz) * scale)
+end
+
+"""
+The system barycentre's propagated distance at this solution's epoch [pc].
 
 PlanetOrbits has public accessors for every other propagated frame quantity
 (`frame_ra`, `frame_dec`, `frame_pmra`, `frame_pmdec`, `frame_rv`) but not
@@ -454,13 +525,27 @@ effective frame of the solve — de-Dopplered under the light-time solve, see
 its docstring) and `_propagate_dist`, at the solved emission epoch
 `traj.t_em` — the same frame, function and epoch `frame_ra`/`frame_dec` are
 computed from, so position and parallax describe one worldline. Replace with
-a public `frame_plx(sol)` when PlanetOrbits gains one.
+a public accessor when PlanetOrbits gains one.
 """
-@inline function _dr4_frame_plx(sol::PlanetOrbits._AbsSol)
+@inline function _dr4_frame_dist(sol::PlanetOrbits._AbsSol)
     _, _, _, d_pc = PlanetOrbits._propagate_dist(PlanetOrbits.frame(sol),
                                                 @inbounds sol.traj.t_em[sol.k])
-    return 1000 / d_pc
+    return d_pc
 end
+
+"""The system barycentre's parallax at this solution's epoch [mas], `1000 / d(t)`."""
+@inline _dr4_frame_plx(sol::PlanetOrbits._AbsSol) = 1000 / _dr4_frame_dist(sol)
+
+"""
+The parallax [mas] of `target` at this solution's epoch: `1000 / (d + Δz)`
+for the barycentre's propagated distance `d` [pc] and the target's
+line-of-sight offset `Δz = posz(sol, target, reference)` [AU, +receding] from
+it — the inverse of [`barycentre_parallax`](@ref). For a blended photocentre
+`Δz` is the flux-weighted mean, which is its parallax to first order in
+`Δz/d` (the next term is ~1e-10 of the parallax for a 100 au pair at 10 pc).
+"""
+@inline _dr4_source_plx(sol::PlanetOrbits._AbsSol, target, reference) =
+    1000 / (_dr4_frame_dist(sol) + PlanetOrbits.posz(sol, target, reference) / PlanetOrbits.pc2au)
 
 # The θ-level half of the `check_siblings` contract: `hasproperty` on the θ
 # NamedTuple is a compile-time constant, so this folds to nothing on a valid
@@ -502,22 +587,13 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
     absolute = _dr4_isabs(ctx.system.frame)
 
     if absolute
-        # The barycentre's propagated apparent direction, projected about the
-        # data's tangent point, and its parallax at the epoch. The parallax
-        # term is staged in `along_scan` (which nothing else writes before the
-        # final projection loop) so that loop can add it per transit.
+        # The excursion is accumulated from zero first, in the barycentre's
+        # tangent plane; the loop after it moves the target onto the sphere
+        # and projects it about the data's tangent point.
         _dr4_check_absolute_θ(θ_obs, obs.name)
-        tp = obs.tangent_point
-        tp === nothing && _dr4_err_no_tangent(obs.name)
-        α0 = tp[1]
-        sinδ0, cosδ0 = obs.sincos_dec0
-        @inbounds for i in eachindex(tab.epoch)
-            sol = solutionat(ctx, i)
-            ξ, η = _dr4_gnomonic(frame_ra(sol), frame_dec(sol), α0, sinδ0, cosδ0)
-            ra_offset[i] = ξ
-            dec_offset[i] = η
-            along_scan[i] = _dr4_frame_plx(sol) * tab.parallax_factor_al[i]
-        end
+        obs.tangent_point === nothing && _dr4_err_no_tangent(obs.name)
+        fill!(ra_offset, zero(T))
+        fill!(dec_offset, zero(T))
     else
         # Parallax-only: the reference point's own linear motion, from this
         # observation's variables. Unchanged since the v2 port.
@@ -567,10 +643,19 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
     end
 
     if absolute
-        # `along_scan[i]` already holds ϖ(tᵢ) · f_al,i (see above).
-        @inbounds @simd for i in eachindex(tab.epoch)
-            along_scan[i] = ra_offset[i] * obs.sinψ[i] + dec_offset[i] * obs.cosψ[i] +
-                            along_scan[i]
+        # `ra_offset`/`dec_offset` hold the (possibly detrended) excursion,
+        # gnomonic about the barycentre's apparent direction. Compose it with
+        # that direction on the sphere and project about the tangent point
+        # (`_dr4_project`); the parallax is the target's own at the epoch.
+        basis = obs.tangent_basis
+        @inbounds for i in eachindex(tab.epoch)
+            sol = solutionat(ctx, i)
+            ξ, η = _dr4_project(frame_ra(sol), frame_dec(sol),
+                                ra_offset[i], dec_offset[i], basis)
+            ra_offset[i] = ξ
+            dec_offset[i] = η
+            along_scan[i] = ξ * obs.sinψ[i] + η * obs.cosψ[i] +
+                            _dr4_source_plx(sol, target, reference) * tab.parallax_factor_al[i]
         end
     else
         plx = ctx.θ_system.plx

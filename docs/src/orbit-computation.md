@@ -630,17 +630,23 @@ degrading at solve time.
 
 The *SSB observables* in mode (i) include the frame itself. When the system
 block defines a full absolute frame, `GaiaDR4AstromObs` takes its reference
-point from it: each transit's abscissa is the barycentre's propagated apparent
-direction (`frame_ra`, `frame_dec`) projected gnomonically about the tangent
-point DR4 counts `centroid_pos_al` from (the table's `ra0`/`dec0`), plus the
-parallax at that epoch times `parallax_factor_al`, plus the photocentre's
-excursion from the barycentre. Perspective acceleration — about 5 mas over the
-DR4 window for a Barnard-like star, against per-transit errors of 0.05–0.1 mas —
-the change of parallax with distance, and, with `barycentric_lighttime` on, the
-light-time terms therefore all reach the likelihood. The system block then owns
-the barycentre's position and proper motion, so the observation may not declare
-its own `ra_offset_mas`/`dec_offset_mas`/`pmra`/`pmdec`/`ref_epoch` (that is an
-error, not a silent override), and a missing tangent point is an error too.
+point from it. Each transit's modelled position is the target's direction (the
+barycentre's propagated apparent direction, `frame_ra`/`frame_dec`, displaced on
+the sphere by the target's excursion from it) projected gnomonically about the
+tangent point DR4 counts `centroid_pos_al` from (the table's `ra0`/`dec0`). The
+parallax term is the target's own parallax at that epoch times
+`parallax_factor_al`. Perspective acceleration (about 5 mas over the DR4 window
+for a Barnard-like star, against per-transit errors of 0.05–0.1 mas), the change
+of parallax with distance and, with `barycentric_lighttime` on, the light-time
+terms therefore all reach the likelihood. The composition is exact. Adding the
+excursion to the projected barycentre would be wrong by mas for the
+arcsecond-scale excursions of a resolved wide pair's components.
+
+The absolute frame is Gaia DR4's: the system's `ra`/`dec`/`pmra`/`pmdec` are the
+barycentre's DR4 position and proper motion. The observation therefore may not
+declare its own `ra_offset_mas`/`dec_offset_mas`/`pmra`/`pmdec`/`ref_epoch`
+(that is an error, not a silent override), and a missing tangent point is an
+error too. Other absolute datasets carry their offsets to DR4.
 With `plx` alone the observation keeps its linear reference point from those
 variables, exactly as before. `G23HObs` follows the same rule: on an absolute
 frame its catalog proper motions are the frame's `frame_pmra`/`frame_pmdec`

@@ -181,8 +181,7 @@ end
     # (b) A tangent point a few hundred mas off, as DR4's (ra0, dec0) is the
     # source's catalogue position rather than the barycentre's. The offset is
     # the frame's exact gnomonic position about the tangent point, computed
-    # here with unit vectors (independently of the implementation's
-    # trigonometric form). What remains is the rotation between the frame's
+    # here directly with unit vectors. What remains is the rotation between the frame's
     # local axes and the tangent point's, Δα sin δ ≈ 7×10⁻⁷ rad, acting on
     # the ≲ 75 mas of proper motion over the window: ≲ 5×10⁻⁵ mas.
     ra0 = k.ra - 0.25 / 3600 / cosd(k.dec)          # frame is 250 mas east of it
@@ -323,4 +322,163 @@ end
     without = GaiaDR4AstromObs(dr4f_table(); name="GaiaDR4", variables=vars)
     @test dr4f_simulate(dr4f_parallax_system(with, 20.0)).along_scan ==
           dr4f_simulate(dr4f_parallax_system(without, 20.0)).along_scan
+end
+
+# ---------------------------------------------------------------------------
+# Wide pairs: the excursion is composed with the frame on the sphere
+# ---------------------------------------------------------------------------
+
+# A resolved wide pair at high declination: A (1 Msun) and B (0.5 Msun) at
+# 300 au, 13.5 pc — ~22″ apart, so each source sits 7–15″ from the
+# barycentre. Fixed values: the tests below are about geometry.
+const DR4F_WIDE = (ra=150.0, dec=70.0, plx=74.19, pmra=-172.57, pmdec=-381.32, rv=-26.9e3)
+
+function dr4f_wide_bodies(; mass_B=0.5)
+    A = Octofitter.Body(name="A", variables=@variables begin
+        mass = 1.0
+    end)
+    B = Octofitter.Body(name="B", about=A, variables=@variables begin
+        mass = $mass_B
+        a = 300.0; e = 0.2; i = 1.0; ω = 0.5; Ω = 1.0; tp = 50000.0
+    end)
+    return (A, B)
+end
+
+# Spherical-trig inverse gnomonic: the direction [deg] whose gnomonic
+# coordinates about (α0, δ0) [deg] are (x, y) [mas]. Written from the
+# textbook formulae, independently of `_dr4_project`'s vector form.
+function dr4f_ungnomonic(x, y, α0, δ0)
+    xr, yr = (x, y) ./ (rad2deg(1.0) * 3.6e6)
+    ρ = hypot(xr, yr)
+    ρ == 0 && return (α0, δ0)
+    c = atan(ρ)
+    δ = asind(cos(c) * sind(δ0) + yr * sin(c) * cosd(δ0) / ρ)
+    α = α0 + rad2deg(atan(xr * sin(c), ρ * cosd(δ0) * cos(c) - yr * sind(δ0) * sin(c)))
+    return (α, δ)
+end
+# …and the forward projection, in its trigonometric form.
+function dr4f_gnomonic(α, δ, α0, δ0)
+    D = sind(δ) * sind(δ0) + cosd(δ) * cosd(δ0) * cosd(α - α0)
+    s = rad2deg(1.0) * 3.6e6 / D
+    return (cosd(δ) * sind(α - α0) * s,
+            (sind(δ) * cosd(δ0) - cosd(δ) * sind(δ0) * cosd(α - α0)) * s)
+end
+
+@testset "wide pair: excursion composed on the sphere, source's own parallax" begin
+    A, B = dr4f_wide_bodies()
+    k = DR4F_WIDE
+    mksys(obs) = Octofitter.System(name="wide", bodies=[A, B], observations=[obs],
+        barycentric_lighttime=:off, observing_geometry=:off,
+        variables=@variables begin
+            plx = $(k.plx); ra = $(k.ra); dec = $(k.dec)
+            pmra = $(k.pmra); pmdec = $(k.pmdec); rv = $(k.rv)
+            ref_epoch = $DR4F_REF
+        end)
+
+    # Where A is at the reference epoch, from the model itself, so the tangent
+    # point sits near the source as DR4's does.
+    sys0 = mksys(GaiaDR4AstromObs(dr4f_table(); name="GaiaDR4", target=:A,
+        tangent_point=(k.ra, k.dec)))
+    nt = Octofitter.make_arr2nt(sys0)(Float64[])
+    posys = Octofitter.make_ln_like(sys0).build(nt)
+    bary = PlanetOrbits.barycentre(posys)
+    sol_ref = orbitsolve(posys, DR4F_REF; Octofitter._solvekw(sys0)...)
+    tA = dr4f_ungnomonic(raoff(sol_ref, :A, bary), decoff(sol_ref, :A, bary),
+                         frame_ra(sol_ref), frame_dec(sol_ref))
+    tA = (tA[1] + 1.0 / 3.6e6, tA[2] - 0.5 / 3.6e6)     # …give or take a mas
+
+    for (name, tgt) in (("A", :A), ("B", :B))
+        obs = GaiaDR4AstromObs(dr4f_table(ra0=tA[1], dec0=tA[2]); name="GaiaDR4", target=tgt)
+        sim = dr4f_simulate(mksys(obs))
+        traj = orbitsolve(posys, DR4F_EPOCHS; Octofitter._solvekw(sys0)...)
+
+        exact = map(eachindex(DR4F_EPOCHS)) do i
+            sol = traj[i]
+            αβ = dr4f_ungnomonic(raoff(sol, tgt, bary), decoff(sol, tgt, bary),
+                                 frame_ra(sol), frame_dec(sol))
+            dr4f_gnomonic(αβ..., tA...)
+        end
+        first_order = map(eachindex(DR4F_EPOCHS)) do i
+            sol = traj[i]
+            ξB, ηB = dr4f_gnomonic(frame_ra(sol), frame_dec(sol), tA...)
+            (ξB + raoff(sol, tgt, bary), ηB + decoff(sol, tgt, bary))
+        end
+        err_exact = maximum(i -> hypot(sim.ra_offset[i] - exact[i][1],
+                                       sim.dec_offset[i] - exact[i][2]), eachindex(exact))
+        err_first = maximum(i -> hypot(first_order[i][1] - exact[i][1],
+                                       first_order[i][2] - exact[i][2]), eachindex(exact))
+        sep = maximum(i -> hypot(raoff(traj[i], tgt, bary), decoff(traj[i], tgt, bary)),
+                      eachindex(DR4F_EPOCHS)) / 1000
+        @info "wide pair, source $name: composition error" excursion_arcsec = sep exact_mas = err_exact first_order_mas = err_first
+        @test err_exact < 1e-5            # mas: rounding only
+        @test err_first > 0.3             # mas: the error this replaces is real here
+
+        # The parallax multiplying f_al is the source's own: inverting it with
+        # the (separately written) `barycentre_parallax` recovers the
+        # barycentre's, and its sign follows the line-of-sight offset.
+        ϖ_src = Octofitter._dr4_source_plx(sol_ref, tgt, bary)
+        ϖ_bar = Octofitter._dr4_frame_plx(sol_ref)
+        dz = posz(sol_ref, tgt, bary)
+        @test barycentre_parallax(ϖ_src, dz) ≈ ϖ_bar rtol = 1e-12
+        @test sign(ϖ_src - ϖ_bar) == -sign(dz)
+        # …and is what the abscissae use.
+        ϖ_i = [Octofitter._dr4_source_plx(traj[i], tgt, bary) for i in eachindex(DR4F_EPOCHS)]
+        w_expect = @. sim.ra_offset * sind(DR4F_PSI) + sim.dec_offset * cosd(DR4F_PSI) + ϖ_i * DR4F_FAL
+        @test maximum(abs, sim.along_scan .- w_expect) < 1e-9
+    end
+end
+
+# The usage example in docs/src/gaia-dr4-prerelease.md ("Two sources, one
+# frame"), with simulated tables: an anchored absolute frame whose anchor
+# position is a mas offset from the catalogue, and the two resolved
+# components of a wide pair each observed by DR4 against its own tangent
+# point.
+@testset "two DR4 sources sharing an anchored absolute frame (docs example)" begin
+    A, B = dr4f_wide_bodies()
+    k = DR4F_WIDE
+    # Catalogue positions (and so tangent points) of the two sources: A near
+    # the frame centre, B ~22″ away. Made up, as a catalogue's would be off.
+    RA_A, DEC_A = k.ra, k.dec
+    RA_B, DEC_B = k.ra + 15.0 / 3600 / cosd(k.dec), k.dec + 16.0 / 3600
+
+    obs_A = GaiaDR4AstromObs(dr4f_table(ra0=RA_A, dec0=DEC_A); target=A, ref=Barycentre,
+        name="DR4_A")
+    obs_B = GaiaDR4AstromObs(dr4f_table(ra0=RA_B, dec0=DEC_B); target=B, ref=Barycentre,
+        name="DR4_B")
+
+    sys = Octofitter.System(name="wide pair", bodies=[A, B], observations=[obs_A, obs_B],
+        barycentric_lighttime=:off, observing_geometry=:off,
+        variables=AnchoredFrame(A; ref_epoch=DR4F_REF, variables=@variables begin
+            # A's position as mas offsets from its catalogue position…
+            Δra_A  ~ Normal(0, 1000)
+            Δdec_A ~ Normal(0, 1000)
+            # …and the angles the frame needs, derived from them.
+            ra_A  = $RA_A + Δra_A / (3.6e6 * cosd($DEC_A))
+            dec_A = $DEC_A + Δdec_A / 3.6e6
+            plx_A   ~ Uniform(60, 90)
+            pmra_A  ~ Normal(k.pmra, 50)
+            pmdec_A ~ Normal(k.pmdec, 50)
+            rv_A    ~ Normal(k.rv, 5e3)
+        end))
+
+    # A noiseless draw is fitted exactly by both observations…
+    θ = Octofitter.drawfrompriors(sys)
+    clean = Octofitter.generate_from_params(sys, θ; add_noise=false)
+    expected = 2 * (-DR4F_N * log(2π) / 2 - DR4F_N * log(0.08^2) / 2)
+    @test Octofitter.make_ln_like(clean)(clean, θ) ≈ expected rtol = 1e-10
+
+    # …and the model differentiates through the anchored frame and both
+    # tracks. Checked near a noiseless truth, where ℓ is moderate: at a raw
+    # prior draw ℓ ~ -1e11 and central differences are rounding-limited.
+    model = Octofitter.LogDensityModel(sys; verbosity=0)
+    θv = Octofitter.sample_priors(Random.Xoshiro(7), sys)
+    truth = Octofitter.generate_from_params(sys, model.arr2nt(θv); add_noise=false)
+    model_t = Octofitter.LogDensityModel(truth; verbosity=0)
+    θt = model_t.link(θv .* (1 .+ 1e-6 .* randn(Random.Xoshiro(8), length(θv))))
+    ℓ, g = model_t.∇ℓπcallback(θt)
+    @test isfinite(ℓ)
+    @test all(isfinite, g)
+    gfd = FiniteDiff.finite_difference_gradient(model_t.ℓπcallback, θt, Val(:central); relstep=1e-5)
+    @info "anchored two-source model: gradient check" ℓ rel_err = norm(g .- gfd) / norm(g)
+    @test norm(g .- gfd) / norm(g) < 1e-5
 end
