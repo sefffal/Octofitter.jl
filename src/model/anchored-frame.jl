@@ -248,8 +248,10 @@ the same bodies the final system is built from.
     sys = System(
         name="ups And", bodies=[A, b, B], observations=[g23h_A, g23h_B],
         variables=AnchoredFrame(A; ref_epoch=mjd("2016-01-01"), variables=@variables begin
-            ra_A     ~ Normal(24.19928, 1/3.6e6)
-            dec_A    ~ Normal(41.40546, 1/3.6e6)
+            Δra_A    ~ Normal(0, 1)          # mas from the catalogue position
+            Δdec_A   ~ Normal(0, 1)
+            ra_A     = 24.19928 + Δra_A / (3.6e6 * cosd(41.40546))
+            dec_A    = 41.40546 + Δdec_A / 3.6e6
             plx_A    ~ Normal(74.19, 0.20)
             pmra_A   ~ Normal(-172.57, 0.05)
             pmdec_A  ~ Normal(-381.32, 0.04)

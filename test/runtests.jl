@@ -68,6 +68,11 @@ if TEST_MODE in ("all", "unit")
     @testset "Simulated Gaia DR4 epoch astrometry" begin
         include("v2/gaia-dr4-sim.jl")
     end
+    # Self-contained: DR4 on a system with an absolute frame (perspective
+    # curvature, the epoch's parallax, the tangent point, the build contract).
+    @testset "Gaia DR4 on an absolute frame" begin
+        include("v2/gaia-dr4-frame.jl")
+    end
     @testset "Hipparcos IAD" begin
         include("v2/hipparcos.jl")
     end
