@@ -1,11 +1,13 @@
 # Cut the small fixtures the test suite runs on out of the full products.
 # The fixtures are committed; this script is how they were made.
 #
-#   julia --project=<env with OctofitterGaia and HDF5> make_fixtures.jl <mist grid .h5> <sed nodes .h5>
+#   julia --project=<env with HDF5> make_fixtures.jl <mist grid .h5> <sed nodes .h5> <rvs nodes .h5>
 #
 # mist_fixture.h5   [Fe/H] -0.25, 0, +0.25; log age 9.55–9.80; EEPs up to 808
 #                   (the end of core helium burning)
 # sed_fixture.h5    Teff 3000–6500 K, log g 4.0–5.5, [M/H] -0.5, 0, +0.5
+# rvs_fixture.h5    the same models; 848–856 nm (two lines of the Ca II
+#                   triplet) and the first 12 principal components
 #
 # Both keep the layout of the full files, so the same loaders read them.
 
@@ -55,5 +57,36 @@ function cut_sed(src, dst)
     end
 end
 
+function cut_rvs(src, dst; ncomp=12, lo=848.0, hi=856.0)
+    h5open(src) do f
+        teff, logg, mh = read(f["teff"]), read(f["logg"]), read(f["mh"])
+        is = findall(x -> 3000 <= x <= 6500, teff)
+        js = findall(x -> 4.0 <= x <= 5.5, logg)
+        ks = findall(x -> -0.5 <= x <= 0.5, mh)
+        lnw0, dlnw = read(f["ln_wave0"]), read(f["dln_wave"])
+        λ = exp.(lnw0 .+ (0:read(f["n_wave"])-1) .* dlnw)
+        ws = findall(x -> lo <= x <= hi, λ)
+        h5open(dst, "w") do g
+            for k in keys(attributes(f))
+                attributes(g)[k] = read(attributes(f)[k])
+            end
+            attributes(g)["fixture"] = "subset of the full node product: $(lo)–$(hi) nm, first $ncomp components"
+            g["teff"] = teff[is]
+            g["logg"] = logg[js]
+            g["mh"] = mh[ks]
+            g["ln_wave0"] = lnw0 + (first(ws) - 1) * dlnw
+            g["dln_wave"] = dlnw
+            g["n_wave"] = length(ws)
+            g["mean"] = read(f["mean"])[ws]
+            g["basis", chunk=(length(ws), ncomp), deflate=9] = read(f["basis"])[ws, 1:ncomp]
+            g["weights"] = read(f["weights"])[1:ncomp, is, js, ks]
+            g["present"] = read(f["present"])[is, js, ks]
+            g["rms_wave"] = read(f["rms_wave"])[ws]
+            g["rms_node"] = read(f["rms_node"])[is, js, ks]
+        end
+    end
+end
+
 cut_mist(ARGS[1], joinpath(@__DIR__, "mist_fixture.h5"))
 cut_sed(ARGS[2], joinpath(@__DIR__, "sed_fixture.h5"))
+cut_rvs(ARGS[3], joinpath(@__DIR__, "rvs_fixture.h5"))

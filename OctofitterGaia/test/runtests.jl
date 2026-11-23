@@ -21,6 +21,7 @@ const FIXTURES = joinpath(@__DIR__, "fixtures")
 
 evol = MISTGrid(joinpath(FIXTURES, "mist_fixture.h5"))
 lib = SpectralLibrary(joinpath(FIXTURES, "sed_fixture.h5"))
+rvs = RVSLibrary(joinpath(FIXTURES, "rvs_fixture.h5"))
 
 central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (eachindex(x) .== i))) ./ 2h
 
@@ -180,6 +181,55 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         x = [4321.0, 4.63, 0.13]
         @test isapprox(ForwardDiff.jacobian(g, x), hcat((central(g, x, i; h=1e-4) for i in 1:3)...); rtol=1e-5, atol=1e-9)
         # continuous first derivatives across a node of each axis
+        for (x, i, h) in (([4300.0, 4.63, 0.13], 1, 1e-6), ([4321.0, 4.5, 0.13], 2, 1e-9), ([4321.0, 4.63, 0.0], 3, 1e-9))
+            below = ForwardDiff.jacobian(g, x .- h .* (1:3 .== i))
+            above = ForwardDiff.jacobian(g, x .+ h .* (1:3 .== i))
+            @test isapprox(below, above; rtol=1e-5, atol=1e-9)
+        end
+    end
+
+    @testset "RVS library" begin
+        n, nc = OG.nwave(rvs), OG.ncomponents(rvs)
+        λ = OG.wavelengths(rvs)
+        @test length(λ) == n
+        @test all(diff(log.(λ)) .≈ rvs.dln_wave)
+        @test rvs.dln_wave * OG.C_LIGHT / 1e5 ≈ 2.0             # km/s per sample
+        # the eigenspectra are orthonormal over the full window; over the
+        # fixture's part of it their Gram matrix is at least positive definite
+        @test all(>(0), [sum(abs2, rvs.basis[c, :]) for c in 1:nc])
+
+        # weights are reproduced on the nodes
+        w = zeros(nc)
+        rvs_weights!(w, rvs, rvs.teff[11], rvs.logg[2], rvs.mh[2])
+        @test w ≈ rvs.weights[:, 11, 2, 2]
+        @test all(isnan, rvs_weights!(w, rvs, 2900.0, 4.5, 0.0))
+        @test all(isnan, rvs_weights!(w, rvs, 5000.0, 4.5, 0.6))
+        @test_throws DimensionMismatch rvs_weights!(zeros(nc + 1), rvs, 5000.0, 4.5, 0.0)
+
+        # a K dwarf: the deepest feature of the window is the middle line of
+        # the Ca II triplet, at 854.44 nm in vacuum
+        spec = rvs_surface_spectrum!(zeros(n), rvs, 4800.0, 4.6, 0.0)
+        @test all(>(0), spec)
+        @test λ[argmin(spec)] ≈ 854.44 atol = 0.03
+        @test minimum(spec) < 0.6 * maximum(spec)
+        # the other line in the fixture's range, at 850.04 nm
+        near = findall(x -> 849.5 < x < 850.5, λ)
+        @test λ[near[argmin(spec[near])]] ≈ 850.04 atol = 0.03
+
+        # the two node products are on one flux scale: the RVS spectrum
+        # averaged over a bin of the low-resolution SED is that bin's value.
+        # The fixture keeps 12 components, good to a few per cent.
+        sed = surface_sed!(zeros(OG.nbins(lib)), lib, 4800.0, 4.6, 0.0)
+        b = findfirst(==(850.0), lib.edges)
+        inbin = findall(x -> lib.edges[b] <= x < lib.edges[b+1], λ)
+        @test length(inbin) > 800
+        @test sum(spec[inbin] .* λ[inbin]) / sum(λ[inbin]) ≈ sed[b] rtol = 0.03
+
+        # ForwardDiff against central differences, and continuous first
+        # derivatives across a node of each axis
+        g(v) = (T = eltype(v); out = zeros(T, n); rvs_surface_spectrum!(out, rvs, v[1], v[2], v[3]); log.(out[[200, 700, 1100]]))
+        x = [4321.0, 4.63, 0.13]
+        @test isapprox(ForwardDiff.jacobian(g, x), hcat((central(g, x, i; h=1e-4) for i in 1:3)...); rtol=1e-5, atol=1e-9)
         for (x, i, h) in (([4300.0, 4.63, 0.13], 1, 1e-6), ([4321.0, 4.5, 0.13], 2, 1e-9), ([4321.0, 4.63, 0.0], 3, 1e-9))
             below = ForwardDiff.jacobian(g, x .- h .* (1:3 .== i))
             above = ForwardDiff.jacobian(g, x .+ h .* (1:3 .== i))

@@ -21,10 +21,12 @@ include("interp.jl")
 include("passbands.jl")
 include("evolution/mist.jl")
 include("spectra/library.jl")
+include("spectra/rvs.jl")
 include("emitters.jl")
 
-export MISTGrid, SpectralLibrary, Star, SEDFunctionals, BandRate
+export MISTGrid, SpectralLibrary, RVSLibrary, Star, SEDFunctionals, BandRate
 export gaia_passbands, photon_rate, chromatic_moments!, surface_sed!, sed!, scene_points
+export rvs_weights!, rvs_surface_spectrum!
 
 function __init__()
     register(DataDep("MIST_v1.2_vvcrit0.4",
