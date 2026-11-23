@@ -51,16 +51,18 @@ end
     anchor_offsets(system_interim, anchor, epoch)
 
 The **anchor body's motion about the system barycentre**, at `epoch` [MJD], in
-the units the catalogue quantities are in. Subtracting these from an observed
+the units the catalogue quantities are in. Removing these from an observed
 catalogue solution for the anchor source gives the corresponding barycentric
-frame quantities — see [`AnchoredFrame`](@ref), which emits exactly that.
+frame quantities — by subtraction for the rates, and by
+[`barycentre_direction`](@ref) for the position — see [`AnchoredFrame`](@ref),
+which emits exactly that.
 
 `anchor` is a body name (a `Symbol`, or a `Body` model node). Returns
 
 | field | units | meaning |
 |---|---|---|
-| `ra_cosdec` | mas | Δα⋅cos δ, great-circle, i.e. what `raoff` returns |
-| `dec` | mas | Δδ |
+| `ra_cosdec` | mas | gnomonic coordinate toward +α about the barycentre's direction (≈ Δα⋅cos δ), i.e. what `raoff` returns |
+| `dec` | mas | gnomonic coordinate toward +δ (≈ Δδ), i.e. what `decoff` returns |
 | `pmra` | mas/yr | μα\\* of the anchor relative to the barycentre |
 | `pmdec` | mas/yr | μδ |
 | `rv` | m/s | *spectroscopic* line-of-sight velocity (`radvel`) |
@@ -186,16 +188,56 @@ end
 
 @inline function _anchor_map(posys, a::Symbol, epoch, correct, cat; kwargs...)
     posys.frame isa PlanetOrbits.NoFrame && _err_interim_frame()
+    correct[1] == correct[2] || _err_anchor_radec()
     off = anchor_offsets(posys, a, epoch; kwargs...)
+    ra, dec = correct[1] ?
+        barycentre_direction(cat.ra, cat.dec, off.ra_cosdec, off.dec) : (cat.ra, cat.dec)
     return (;
-        ra = correct[1] ? cat.ra - off.ra_cosdec / 3.6e6 / cosd(cat.dec) : cat.ra,
-        dec = correct[2] ? cat.dec - off.dec / 3.6e6 : cat.dec,
+        ra, dec,
         plx = correct[3] ? barycentre_parallax(cat.plx, off.dz) : cat.plx,
         pmra = correct[4] ? cat.pmra - off.pmra : cat.pmra,
         pmdec = correct[5] ? cat.pmdec - off.pmdec : cat.pmdec,
         rv = correct[6] ? cat.rv - off.rv : cat.rv,
     )
 end
+
+"""
+    barycentre_direction(ra_A, dec_A, ξ, η)
+
+The barycentre's direction `(ra, dec)` [deg], given the anchor's direction
+`(ra_A, dec_A)` [deg] and the anchor's gnomonic coordinates `(ξ, η)` [mas]
+about the barycentre — i.e. `anchor_offsets(...).ra_cosdec` and `.dec`, which
+are what `raoff`/`decoff` return.
+
+Exact: it inverts the gnomonic projection rather than subtracting the offset
+as a small angle. Gnomonic coordinates name the ray through `b + ξ e_α + η e_δ`
+(ξ, η in radians, `e_α`/`e_δ` the barycentre's local East/North), so the
+anchor's direction satisfies
+
+    sin δ_A = (sin δ + η cos δ) / √(1 + ξ² + η²)
+    tan(α_A − α) = ξ / (cos δ − η sin δ)
+
+which solve in closed form for `(α, δ)`. The small-angle subtraction
+`(ra_A − ξ/cos δ_A, dec_A − η)` is wrong at second order, by
+`~ ξ⋅η⋅tan δ`: 0.02 mas for a 5″ offset at δ = 41°, 1 mas for 20″ at δ = 70°.
+
+The `asin` has no solution when the anchor is within about `|ξ|` of a
+celestial pole, where the barycentre would lie across it; that is a
+`DomainError`, not something to work around.
+"""
+@inline function barycentre_direction(ra_A, dec_A, ξ, η)
+    x = ξ / 3.6e6 / (180 / π)          # mas → rad
+    y = η / 3.6e6 / (180 / π)
+    δ = asind(sind(dec_A) * sqrt((1 + x * x + y * y) / (1 + y * y))) - atand(y)
+    sδ, cδ = sincosd(δ)
+    return (ra_A - atand(x, cδ - y * sδ), δ)
+end
+
+@noinline _err_anchor_radec() = error(
+    "anchored_frame: `ra` and `dec` must be anchored together (both `true` or both " *
+    "`false` in `correct`). A position is a direction: the barycentre's ra and dec " *
+    "follow jointly from the anchor's, and one cannot be the anchor's while the " *
+    "other is the barycentre's.")
 
 @noinline _err_interim_frame() = error(
     "the anchored frame needs the interim system to carry a parallax: the " *
@@ -226,7 +268,7 @@ at 13 pc, which is where it starts to matter.
 @inline barycentre_parallax(plx_anchor, dz_au) =
     inv(inv(plx_anchor) - dz_au / (1000 * PlanetOrbits.pc2au))
 
-export anchor_offsets, anchored_frame, barycentre_parallax
+export anchor_offsets, anchored_frame, barycentre_parallax, barycentre_direction
 
 """
     AnchoredFrame(anchor; ref_epoch, variables, ra=true, dec=true, plx=true, pmra=true, pmdec=true, rv=true)
@@ -304,12 +346,17 @@ frame out of them; see [`anchored_frame`](@ref).
 # Priors and the Jacobian
 
 The map (anchored) → (barycentric) is **triangular with unit diagonal** in ra,
-dec, pmra, pmdec and rv: each barycentric quantity is its anchored counterpart
+pmra, pmdec and rv: each barycentric quantity is its anchored counterpart
 minus a correction built from the *body* variables and `plx_A` only. So a
 prior declared on `pmra_A` transfers to `pmra` with volume factor 1, and needs
 no `LL +=` correction.
 
-That is exact for the one-pass map (`refine=false`). The default second pass —
+That is exact for the one-pass map (`refine=false`). Position is inverted
+exactly on the sphere ([`barycentre_direction`](@ref)), so `dec` also reads
+`dec_A` and `ra` reads both: `∂ra/∂ra_A = 1` exactly, while `∂dec/∂dec_A`
+differs from 1 at second order in the anchor's offset, ~1e-9 for the 750 au
+pair above. The map stays triangular, so the volume factor is the product of
+the diagonal. The default second pass —
 which is what makes `pmra_A` mean the anchor's proper motion to better than
 10⁻⁶ mas/yr rather than 4 × 10⁻³ — couples each output weakly to all six
 inputs, perturbing the diagonal by 10⁻⁹–10⁻⁴ and the determinant by 10⁻⁹. That
@@ -376,6 +423,11 @@ function AnchoredFrame(anchor;
             "Those are the two alternatives, not a pair: pass `$q=false` to keep your " *
             "own definition, or drop the `$q =` line and let the anchoring derive it.")
     end
+    isnothing(anchored.ra) == isnothing(anchored.dec) || error(
+        "AnchoredFrame: `ra` and `dec` must be anchored together, or neither. A " *
+        "position is a direction: the barycentre's ra and dec follow jointly from " *
+        "the anchor's, so one cannot be the anchor's while the other is the " *
+        "barycentre's. Pass `ra=false, dec=false` to sample the barycentric position.")
     all(isnothing, anchored) && error(
         "AnchoredFrame: every quantity was passed as `false`, so nothing is anchored " *
         "and this call would do nothing. Use a plain `@variables` block instead.")
