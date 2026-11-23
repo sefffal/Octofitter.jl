@@ -359,7 +359,7 @@ buffer and its own row range. Without it, every row is visited and the
 buffers are indexed by table row.
 
 The buffers are **accumulated into**, not overwritten, so a caller can lay
-down a reference-point linear motion first (as `GaiaDR4AstromObs` does) and
+down the reference point's track first (as `GaiaDR4AstromObs` does) and
 add the orbital excursion on top.
 
 This is the v9 replacement for `_simulate_skypath_perturbations!`. It is
