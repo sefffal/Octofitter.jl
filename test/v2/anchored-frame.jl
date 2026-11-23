@@ -38,6 +38,18 @@ end
 const CATALOG = (ra=24.19928, dec=41.40546, plx=74.19,
                  pmra=-172.57, pmdec=-381.32, rv=-26900.0)
 
+# Textbook inverse gnomonic: the direction [deg] whose gnomonic coordinates
+# about (α0, δ0) [deg] are (ξ, η) [mas]. Independent of `barycentre_direction`.
+function af_ungnomonic(ξ, η, α0, δ0)
+    x, y = (ξ, η) ./ (rad2deg(1.0) * 3.6e6)
+    ρ = hypot(x, y)
+    ρ == 0 && return (α0, δ0)
+    c = atan(ρ)
+    δ = asind(cos(c) * sind(δ0) + y * sin(c) * cosd(δ0) / ρ)
+    α = α0 + rad2deg(atan(x * sin(c), ρ * cosd(δ0) * cos(c) - y * sind(δ0) * sin(c)))
+    return (α, δ)
+end
+
 function anchored_system(; a=5.0, mass_b=0.02, kwargs...)
     A, b = anchored_bodies(; a, mass_b)
     sys = Octofitter.System(name="anchored", bodies=[A, b], verbosity=0,
@@ -122,6 +134,23 @@ end
         @test PlanetOrbits.frame_rv(sol) + PlanetOrbits.radvel(sol, :A, bary) ≈
               CATALOG.rv atol = 1e-3         # m/s, against an rv of 2.7e4 of them
         @test PlanetOrbits.frame_ra(sol) ≈ θ.ra atol = 1e-12
+        # The anchor's *position* closes too: its direction — the frame's
+        # displaced on the sphere by its gnomonic offset, inverted here with
+        # textbook spherical trigonometry — is the sampled one.
+        ξ, η = PlanetOrbits.raoff(sol, :A, bary), PlanetOrbits.decoff(sol, :A, bary)
+        αA, δA = af_ungnomonic(ξ, η, PlanetOrbits.frame_ra(sol), PlanetOrbits.frame_dec(sol))
+        resid_mas = hypot((αA - CATALOG.ra) * cosd(CATALOG.dec), δA - CATALOG.dec) * 3.6e6
+        @test resid_mas < 1e-4
+        # …which the small-angle subtraction did not do: at a 750 au pair it
+        # leaves the anchor this far from where it was sampled.
+        if a > 100
+            αs = CATALOG.ra - ξ / 3.6e6 / cosd(CATALOG.dec)
+            δs = CATALOG.dec - η / 3.6e6
+            α1, δ1 = af_ungnomonic(ξ, η, αs, δs)
+            small_mas = hypot((α1 - CATALOG.ra) * cosd(CATALOG.dec), δ1 - CATALOG.dec) * 3.6e6
+            @info "anchored position closure, 750 au pair" offset_arcsec = hypot(ξ, η) / 1000 exact_mas = resid_mas small_angle_mas = small_mas
+            @test small_mas > 100 * resid_mas
+        end
 
         # The corrections themselves are real at both separations — the point
         # of the exercise is that they are large next to a catalogue σ
@@ -290,9 +319,15 @@ end
     # § One pass: exact.
     J1, θ1 = jac(false)
     for (k, q) in enumerate(QS)
-        q === :plx && continue
+        q in (:plx, :dec) && continue
         @test J1[k, k] == 1.0
     end
+    # Position is inverted exactly on the sphere, so `dec` reads `dec_A`
+    # through a second-order term and `ra` reads `dec_A` too. Still
+    # triangular (dec feeds ra, ra feeds nothing), and the diagonal is 1 to
+    # second order in the anchor's ~8″ offset.
+    @test J1[2, 2] ≈ 1.0 atol = 1e-8
+    @test J1[2, 1] == 0.0
     @test J1[3, 3] ≈ (θ1.plx / θ1.plx_A)^2 rtol = 1e-10
     # Triangular: parallax feeds everything (it sets the AU→mas scale) and
     # nothing feeds parallax but itself.
@@ -498,4 +533,43 @@ end
     # A body *behind* the barycentre gives a smaller parallax, and vice versa.
     @test barycentre_parallax(CATALOG.plx, 1000.0) > CATALOG.plx
     @test barycentre_parallax(CATALOG.plx, -1000.0) < CATALOG.plx
+end
+
+@testset "barycentre_direction inverts the gnomonic offset exactly" begin
+    # For anchors across the sky and offsets up to an arcminute, the anchor's
+    # gnomonic coordinates about the returned barycentre direction — computed
+    # with independent textbook formulae — are the ones put in.
+    worst = 0.0; worst_small = 0.0
+    for (αA, δA) in ((24.2, 41.4), (150.0, 70.0), (300.0, 85.0), (359.99, -60.0), (0.003, 5.0)),
+        (ξ, η) in ((1e3, 0.0), (0.0, -1e3), (12e3, 16e3), (-45e3, 30e3))
+        αB, δB = barycentre_direction(αA, δA, ξ, η)
+        α1, δ1 = af_ungnomonic(ξ, η, αB, δB)
+        worst = max(worst, hypot(mod(α1 - αA + 180, 360) - 180, (δ1 - δA) / cosd(δA)) *
+                           cosd(δA) * 3.6e6)
+        αs, δs = αA - ξ / 3.6e6 / cosd(δA), δA - η / 3.6e6      # the old small-angle step
+        α2, δ2 = af_ungnomonic(ξ, η, αs, δs)
+        worst_small = max(worst_small, hypot((α2 - αA) * cosd(δA), δ2 - δA) * 3.6e6)
+    end
+    @info "barycentre_direction: anchor recovered" worst_mas = worst small_angle_worst_mas = worst_small
+    @test worst < 1e-5
+    @test worst_small > 1.0
+    @test barycentre_direction(10.0, 20.0, 0.0, 0.0) == (10.0, 20.0)
+    # Differentiable, including at zero offset.
+    g = ForwardDiff.gradient(v -> sum(barycentre_direction(v...)), [150.0, 70.0, 12e3, 16e3])
+    @test all(isfinite, g)
+    g0 = ForwardDiff.gradient(v -> sum(barycentre_direction(v...)), [150.0, 70.0, 0.0, 0.0])
+    @test all(isfinite, g0)
+end
+
+@testset "ra and dec are anchored together" begin
+    A, b = anchored_bodies()
+    @test_throws r"`ra` and `dec` must be anchored together" AnchoredFrame(A;
+        ref_epoch=REF_EP, dec=false, variables=@variables begin
+            ra_A = $(CATALOG.ra); dec = $(CATALOG.dec); plx_A = $(CATALOG.plx)
+            pmra_A = $(CATALOG.pmra); pmdec_A = $(CATALOG.pmdec); rv_A = $(CATALOG.rv)
+        end)
+    (; θ, posys) = anchored_solved(anchored_system().sys)
+    interim = PlanetOrbits.reframe(posys; plx=θ.plx_interim)
+    @test_throws r"must be anchored together" anchored_frame(interim, :A, REF_EP,
+        (true, false, true, true, true, true); CATALOG...)
 end

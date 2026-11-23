@@ -35,6 +35,7 @@ AnchoredFrame
 anchored_frame
 anchor_offsets
 barycentre_parallax
+barycentre_direction
 ```
 
 ### Sampling-coordinate Jacobians
