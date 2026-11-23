@@ -31,8 +31,11 @@ include("rvs/components.jl")
 include("rvs/epoch_spectra.jl")
 include("emitters.jl")
 include("image/basis.jl")
+include("frame.jl")
+include("observation.jl")
 
 export MISTGrid, BHAC15Grid, SeamedEvolution, SpectralLibrary, RVSLibrary, SeamedLibrary, Star, SEDFunctionals, BandRate
+export GaiaDR4RawObs, transit_position, transit_velocity, scan_coordinates, catalogue_track
 export ImageBasis, image_terms!, image_fraction, window_mean!, wavenumber_range
 export gaia_passbands, photon_rate, chromatic_moments!, surface_sed!, sed!, scene_points
 export rvs_weights!, rvs_surface_spectrum!

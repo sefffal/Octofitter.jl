@@ -769,6 +769,154 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         @test_throws DimensionMismatch window_mean!(zeros(18, 11), basis, ref.w, ref.z, 0.0, srcs)
     end
 
+    # The RVS block on the model's absolute frame: positions as `GaiaDR4AstromObs`
+    # places them, velocities from the frame's own radial velocity.
+    @testset "GaiaDR4RawObs" begin
+        RA0, DEC0, REF = 209.506326888, 31.695499700, 57936.875
+        star = Star(evol, lib, rvs)
+        A = Body(name="A", variables=@variables begin
+            mass ~ truncated(Normal(0.9, 0.03), lower=0.8, upper=1.0)
+            star = $evol(mass, system.logage, system.feh)
+            teff = star.teff
+            logg = star.logg
+            mh = star.mh
+            radius = star.radius
+            vsini ~ Uniform(0, 15)
+            drv ~ Normal(0, 300)
+        end)
+        b = Body(name="b", about=A, variables=@variables begin
+            mass ~ Uniform(0.6, 0.7)
+            star = $evol(mass, system.logage, system.feh)
+            teff = star.teff
+            logg = star.logg
+            mh = star.mh
+            radius = star.radius
+            vsini ~ Uniform(0, 15)
+            drv ~ Normal(0, 300)
+            a ~ LogUniform(0.5, 2.0)
+            e ~ Uniform(0.0, 0.4)
+            i ~ Sine()
+            ω ~ Uniform(0, 2pi)
+            Ω ~ Uniform(0, 2pi)
+            θ ~ Uniform(0, 2pi)
+            epoch = 57000.0
+        end)
+        rng = Random.Xoshiro(5)
+        nt = 10
+        epoch = sort(56900 .+ 2000 .* rand(rng, nt))
+        ψ = 360 .* rand(rng, nt)
+        f_al, f_ac = 1.4 .* rand(rng, nt) .- 0.7, 1.4 .* rand(rng, nt) .- 0.7
+        track = catalogue_track(epoch, ψ, f_al, f_ac; parallax=40.0, pmra=120.0, pmdec=-80.0, ref_epoch=REF)
+        wave = collect(849.0:0.025:855.0)
+        table(; ref_al=track.al, flux=[ones(length(wave)) for _ in 1:nt]) = Table(; epoch, scan_pos_angle=ψ,
+            parallax_factor_al=f_al, parallax_factor_ac=f_ac, ref_pos_al=ref_al, ref_pos_ac=track.ac,
+            flux, flux_error=[fill(0.01, length(wave)) for _ in 1:nt])
+        raw(; kw...) = GaiaDR4RawObs(; rvs=table(; kw...), emitters=(A=star, b=star), tangent_point=(RA0, DEC0), wavelength=wave)
+        frame = @variables begin
+            plx ~ truncated(Normal(40.0, 0.05), lower=1.0)
+            Δra_mas ~ Normal(0, 5)
+            Δdec_mas ~ Normal(0, 5)
+            ra = $RA0 + Δra_mas / (3.6e6 * cosd($DEC0))
+            dec = $DEC0 + Δdec_mas / 3.6e6
+            pmra ~ Normal(120.0, 1.0)
+            pmdec ~ Normal(-80.0, 1.0)
+            rv ~ Normal(15_000, 3_000)
+            ref_epoch = $REF
+            logage ~ Uniform(9.6, 9.75)
+            feh ~ truncated(Normal(0.0, 0.05), lower=-0.2, upper=0.2)
+            av = 0.0
+        end
+        astrom = GaiaDR4AstromObs(Table(; epoch, scan_pos_angle=ψ, parallax_factor_al=f_al, centroid_pos_al=zeros(nt),
+                centroid_pos_error_al=fill(0.1, nt)); target=A, ref=Barycentre, tangent_point=(RA0, DEC0), name="astrom")
+        system(obs...) = System(name="rawpair", bodies=[A, b], observations=collect(obs), variables=frame)
+        obs = raw()
+        sys = system(obs, astrom)
+        @test Octofitter.refspecs(obs) == (Octofitter.refspec(:A), Octofitter.refspec(:b), Barycentre)
+        Random.seed!(3)
+        θ = Octofitter.drawfrompriors(sys)
+        function contexts(sys, θ)
+            unique_ep, maps = Octofitter.epoch_plan(sys)
+            posys = Octofitter._build_po_system(sys, θ)
+            traj = Octofitter.orbitsolve(posys, unique_ep; Octofitter._solvekw(sys)...)
+            return map(o -> Octofitter._obsctx(sys, θ, (;), posys, traj, maps[o]), sys.observations)
+        end
+        ctx, ctx_astrom = contexts(sys, θ)
+        sim = Octofitter.simulate(obs, ctx)
+        @test size(sim.flux) == (length(wave), nt) && size(sim.velocity) == (2, nt)
+
+        # positions: the same local plane as the DR4 astrometry of the same body
+        refA, refb, bary = Octofitter.ref(ctx, Octofitter.refspec(:A)), Octofitter.ref(ctx, Octofitter.refspec(:b)), Octofitter.ref(ctx, Barycentre)
+        al = Octofitter.simulate(astrom, ctx_astrom).along_scan
+        pos(body, t) = transit_position(Octofitter.solutionat(ctx, t), body, bary, obs.tangent_basis, obs.sinψ[t], obs.cosψ[t], f_al[t], f_ac[t])
+        @test [pos(refA, t)[1] for t in 1:nt] ≈ al rtol = 1e-12
+        # the pipeline's track is the frame's to within what the prior allows the two to differ by
+        @test maximum(abs, al .- track.al) < 60
+        # velocities: frame + orbit + redshift + template zero point + κ × along-scan offset
+        inst = obs.rvs.instrument
+        for t in (1, nt), (k, body, θb) in ((1, refA, θ.bodies.A), (2, refb, θ.bodies.b))
+            sol = Octofitter.solutionat(ctx, t)
+            w, z = pos(body, t)
+            v = (Octofitter.frame_rv(sol) + Octofitter.radvel(sol, body, bary)) / 1000 +
+                gravitational_redshift(θb.logg, θb.radius) + θb.drv / 1000 + inst.kappa * (w - track.al[t])
+            @test sim.velocity[k, t] ≈ v rtol = 1e-12
+            @test sim.weight[k, t] ≈ window_fraction(inst, z - track.ac[t])
+        end
+        @test abs(sim.velocity[1, 1] - θ.rv / 1000) < 40                # the systemic velocity is the frame's
+        @test all(x -> 0.99 < x <= 1, sim.weight)                        # a close pair is whole in the window
+        # moving the assumed position along scan is a velocity shift for every emitter
+        shifted = Octofitter.simulate(raw(ref_al=track.al .+ 100), contexts(system(raw(ref_al=track.al .+ 100), astrom), θ)[1])
+        @test shifted.velocity ≈ sim.velocity .- inst.kappa * 100
+        @test abs(inst.kappa * 100) > 14
+        # an emitter the pipeline subtracted is not in the spectrum
+        mem = ones(2, nt)
+        mem[2, 3] = 0
+        deb = GaiaDR4RawObs(; rvs=table(), emitters=(A=star, b=star), tangent_point=(RA0, DEC0), wavelength=wave, membership=mem)
+        simd = Octofitter.simulate(deb, contexts(system(deb, astrom), θ)[1])
+        @test simd.weight[2, 3] == 0 && simd.weight[2, 4] == sim.weight[2, 4]
+        @test simd.flux[:, 4] == sim.flux[:, 4] && simd.flux[:, 3] != sim.flux[:, 3]
+        single = GaiaDR4RawObs(; rvs=table(), emitters=(A=star,), tangent_point=(RA0, DEC0), wavelength=wave)
+        @test Octofitter.simulate(single, contexts(system(single, astrom), θ)[1]).flux[:, 3] ≈ simd.flux[:, 3]
+
+        # data simulated by the model are most probable at the parameters that made them
+        Random.seed!(11)
+        truth = Octofitter.generate_from_params(sys, θ; add_noise=true)
+        tobs = truth.observations[1]
+        @test tobs isa GaiaDR4RawObs && tobs.table.flux[1] != obs.table.flux[1]
+        @test tobs.rvs.p_bad == obs.rvs.p_bad && tobs.membership == obs.membership
+        ll = Octofitter.make_ln_like(truth)
+        ℓ0 = ll(truth, θ)
+        @test isfinite(ℓ0)
+        # (over 40 such data sets the pull of `rv` has mean -0.14 and standard deviation 1.19, with σ = 0.24 km/s)
+        @test ll(truth, merge(θ, (; rv=θ.rv + 3000))) < ℓ0 - 20
+        @test ll(truth, merge(θ, (; rv=θ.rv - 3000))) < ℓ0 - 20
+        @test ll(truth, merge(θ, (; bodies=merge(θ.bodies, (; A=merge(θ.bodies.A, (; drv=θ.bodies.A.drv + 2000))))))) < ℓ0 - 10
+        # transits are independent given the parameters
+        tctx = contexts(truth, θ)[1]
+        part(inds) = Octofitter.ln_like(Octofitter.likeobj_from_epoch_subset(tobs, inds),
+            contexts(system(Octofitter.likeobj_from_epoch_subset(tobs, inds), astrom), θ)[1])
+        @test part(1:4) + part(5:nt) ≈ Octofitter.ln_like(tobs, tctx)
+        # the log density and its gradient through the whole model
+        model = Octofitter.LogDensityModel(truth; verbosity=0)
+        θv = Octofitter.sample_priors(Random.Xoshiro(7), truth)
+        θt = model.link(θv)
+        v, g = model.∇ℓπcallback(θt)
+        @test isfinite(v) && all(isfinite, g)
+        gfd = [central(x -> [model.ℓπcallback(x)], θt, i; h=1e-6)[1] for i in eachindex(θt)]
+        @test isapprox(g, gfd; rtol=2e-3, atol=1e-3 * maximum(abs, g))
+
+        # what the model refuses
+        @test_throws ErrorException System(name="noframe", bodies=[A, b], observations=[raw()], variables=@variables begin
+            plx ~ Uniform(30, 50)
+            logage ~ Uniform(9.6, 9.75)
+            feh = 0.0
+            av = 0.0
+        end)
+        @test_throws ErrorException GaiaDR4RawObs(; rvs=table(), emitters=(A=star, b=star), wavelength=wave)        # no tangent point
+        @test_throws ErrorException GaiaDR4RawObs(; rvs=table()[nt:-1:1], emitters=(A=star,), tangent_point=(RA0, DEC0), wavelength=wave)
+        @test_throws ArgumentError GaiaDR4RawObs(; rvs=table(), emitters=(A=star, b=star), tangent_point=(RA0, DEC0), wavelength=wave, membership=zeros(2, nt))
+        @test_throws MethodError GaiaDR4RawObs(; rvs=table(), emitters=(A=Star(evol, lib),), tangent_point=(RA0, DEC0), wavelength=wave)
+    end
+
     @testset "in an Octofitter model" begin
         star = Star(evol, lib)
         rate_G = BandRate(star, :G)
