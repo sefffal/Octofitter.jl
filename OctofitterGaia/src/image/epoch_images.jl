@@ -76,6 +76,8 @@ function ImageInstrument(bases::AbstractDict; read_noise=4.48, window_flux_sigma
         throw(ArgumentError("nshapes = $nshapes, but a device has only $(minimum(OctofitterGaia.nshapes, values(bases))) shape modes"))
     allequal(nterms(b) for b in values(bases)) || throw(ArgumentError("the devices' bases differ in chromatic degree"))
     allequal(b.wavenumber_range for b in values(bases)) || throw(ArgumentError("the devices' bases differ in wavenumber range"))
+    (nshapes == 0 || allequal(size(b.modes, 2) for b in values(bases))) ||
+        throw(ArgumentError("the devices' shape modes differ in chromatic degree"))
     all(>=(0), (read_noise, window_flux_sigma, window_shift_sigma..., window_shape_sigma, transit_flux_sigma,
         transit_shift_sigma..., transit_shape_sigma, bad_fraction)) || throw(ArgumentError("widths must not be negative"))
     bad_sigma > 0 || throw(ArgumentError("bad_sigma must be positive"))
@@ -147,7 +149,7 @@ row per **window** (one CCD of one transit):
 `p_bad` is the prior probability that a transit is bad, one number or one
 per transit.
 """
-struct EpochImages
+struct EpochImages{M,NM,NT}             # shape modes, their chromatic terms, the chromatic terms: sizes the inner loops are compiled for
     instrument::ImageInstrument
     bases::Vector{ImageBasis}
     windows::Vector{_ImageWindow}
@@ -221,7 +223,8 @@ function EpochImages(table, instrument::ImageInstrument; p_bad=1e-3)
     nmode = 4 + instrument.nshapes
     window_modes = [a for a in 1:nmode if a == 1 || _window_sigma(instrument, first(windows), a) > 0]
     transit_modes = [a for a in 1:nmode if _transit_sigma(instrument, a) > 0]
-    return EpochImages(instrument, bases, windows, samples, transit_windows, f_al, f_ac, p_bad, window_modes, transit_modes)
+    return EpochImages{instrument.nshapes,size(first(bases).modes, 2),nterms(first(bases))}(instrument, bases, windows, samples,
+        transit_windows, f_al, f_ac, p_bad, window_modes, transit_modes)
 end
 
 # ---------------------------------------------------
@@ -230,22 +233,32 @@ end
 
 # Fill `u[1:4+M]` for sample (i, j) of a window: 1, then the electrons of the
 # sources, their derivatives with respect to a shift of the sample along and
-# across scan, and their change per unit of each shape mode. `ws`, `zs` and
-# `electrons` are the sources' positions and electrons in this window.
-@inline function _sample_vector!(u::AbstractVector, pt::AbstractVector, basis::ImageBasis, win::_ImageWindow, i, j,
-    ws::AbstractVector, zs::AbstractVector, electrons::AbstractVector, moments::AbstractMatrix)
+# across scan, and their change per unit of each shape mode. `ws`, `zs`,
+# `electrons` and `cvecs` are the sources' positions, electrons and
+# (1, moments...) in this window.
+@inline function _sample_vector!(u::AbstractVector, basis::ImageBasis, win::_ImageWindow, i, j,
+    ws::AbstractVector, zs::AbstractVector, electrons::AbstractVector, cvecs::AbstractVector, ::Val{M}, ::Val{NM}) where {M,NM}
     w = win.w0 + i * win.dw + j * win.cw
     z = win.z0 + j * win.dz + i * win.vz
-    fill!(u, 0)
-    @inbounds u[1] = 1
+    T = eltype(u)
+    f = fw = fz = zero(T)
+    shapes = ntuple(_ -> zero(T), Val(M))
     @inbounds for k in eachindex(ws)
-        image_point!(pt, basis, view(moments, :, k), w - ws[k], z - zs[k])
-        for a in eachindex(pt)
-            u[a+1] += electrons[k] * pt[a]
-        end
+        (pf, pw, pz), ps = _point(basis, cvecs[k], w - ws[k], z - zs[k], Val(M), Val(NM))
+        e = electrons[k]
+        f += e * pf
+        fw += e * pw
+        fz += e * pz
+        shapes = shapes .+ e .* ps
+    end
+    @inbounds u[1], u[2], u[3], u[4] = one(T), f, fw, fz
+    for m in 1:M
+        @inbounds u[4+m] = shapes[m]
     end
     return u
 end
+
+@inline _static_sizes(::EpochImages{M,NM,NT}) where {M,NM,NT} = (Val(M), Val(NM), Val(NT))
 
 # Expected electrons of a sample and its variance in the good state, from
 # the sample's vector: background plus sources, the star-level shape
@@ -347,6 +360,14 @@ function image_transit_loglike(d::EpochImages, t::Integer, w::AbstractMatrix, z:
     length(shape) <= M || throw(DimensionMismatch("$(length(shape)) shape coefficients for $M shape modes"))
     T = promote_type(eltype(w), eltype(z), eltype(rate), eltype(moments), map(typeof, Tuple(shape))..., typeof(flux_scale),
         jitter === nothing ? Float64 : promote_type(map(typeof, jitter)...), Float64)
+    return _image_transit_loglike(T, d, t, w, z, rate, moments, shape, flux_scale, jitter, buf, _static_sizes(d)...)
+end
+
+function _image_transit_loglike(::Type{T}, d::EpochImages, t, w, z, rate, moments, shape, flux_scale, jitter, buf,
+    ::Val{M}, ::Val{NM}, ::Val{NT}) where {T,M,NM,NT}
+    inst = d.instrument
+    K = length(rate)
+    wins = d.transit_windows[t]
     it = d.transit_modes
     Kw, Kt, P = length(d.window_modes), length(it), 5 + M
     ron2 = inst.read_noise^2
@@ -354,7 +375,11 @@ function image_transit_loglike(d::EpochImages, t::Integer, w::AbstractMatrix, z:
         G, Gb = @alloc(T, P, P), @alloc(T, P, P)
         A, V = @alloc(T, Kw, Kw), @alloc(T, Kw, Kt + 1)
         H, Hb = @alloc(T, Kt + 1, Kt + 1), @alloc(T, Kt + 1, Kt + 1)
-        u, pt, electrons = @alloc(T, P), @alloc(T, 3 + M), @alloc(T, K)
+        u, electrons = @alloc(T, P), @alloc(T, K)
+        cvecs = @alloc(NTuple{NT,eltype(moments)}, K)
+        for k in 1:K
+            cvecs[k] = _cvec(view(moments, :, k), Val(NT))
+        end
         sigma_t = @alloc(T, Kt)
         for (c, a) in enumerate(it)
             sigma_t[c] = (jitter !== nothing && (a == 3 || a == 4)) ? jitter[a-2] : _transit_sigma(inst, a)
@@ -378,7 +403,7 @@ function image_transit_loglike(d::EpochImages, t::Integer, w::AbstractMatrix, z:
                 y = d.samples[win.offset+1+i+j*win.n_al]
                 isnan(y) && continue
                 nvalid += 1
-                _sample_vector!(uP, pt, basis, win, i, j, ws, zs, electrons, moments)
+                _sample_vector!(uP, basis, win, i, j, ws, zs, electrons, cvecs, Val(M), Val(NM))
                 μ, m = _sample_mean(u, win.background, shape)
                 var = max(μ, zero(μ)) + ron2
                 varb = var + inst.bad_sigma^2 + (inst.bad_fraction * m)^2
@@ -429,12 +454,13 @@ function _window_design(d::EpochImages, iwin::Integer, ws, zs, rate, moments, sh
     n, P1 = win.n_al * win.n_ac, 4 + inst.nshapes
     U = zeros(n, P1)
     mean, variance = zeros(n), zeros(n)
-    pt = zeros(3 + inst.nshapes)
     electrons = [flux_scale * r * win.exposure for r in rate]
+    vM, vNM, vNT = _static_sizes(d)
+    cvecs = [_cvec(view(moments, :, k), vNT) for k in axes(moments, 2)]
     for j in 0:win.n_ac-1, i in 0:win.n_al-1
         s = 1 + i + j * win.n_al
         u = view(U, s, :)
-        _sample_vector!(u, pt, basis, win, i, j, ws, zs, electrons, moments)
+        _sample_vector!(u, basis, win, i, j, ws, zs, electrons, cvecs, vM, vNM)
         mean[s], _ = _sample_mean(u, win.background, shape)
         variance[s] = max(mean[s], 0.0) + inst.read_noise^2
     end

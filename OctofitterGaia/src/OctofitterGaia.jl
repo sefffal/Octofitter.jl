@@ -32,6 +32,7 @@ include("rvs/epoch_spectra.jl")
 include("emitters.jl")
 include("image/basis.jl")
 include("image/epoch_images.jl")
+include("image/adjoint.jl")
 include("frame.jl")
 include("observation.jl")
 
@@ -39,6 +40,7 @@ export MISTGrid, BHAC15Grid, SeamedEvolution, SpectralLibrary, RVSLibrary, Seame
 export GaiaDR4RawObs, transit_position, transit_velocity, scan_coordinates, catalogue_track
 export ImageBasis, image_terms!, image_fraction, image_point!, window_mean!, wavenumber_range
 export ImageInstrument, EpochImages, image_transit_loglike, image_transit_model, image_transit_simulate
+export image_transit_loglike_gradient!, image_transit_loglike_dual
 export gaia_passbands, photon_rate, chromatic_moments!, surface_sed!, sed!, scene_points
 export rvs_weights!, rvs_surface_spectrum!
 export LogWaveGrid, RVSInstrument, RVSEpochSpectra, RVSComponent, GaussianProfile

@@ -8,9 +8,10 @@
 # differentiable, that photon rates are on Gaia's scale, that the likelihood
 # of the RVS epoch spectra is the Gaussian it claims to be and recovers what
 # GaiaTwin put in, that the image model's mean is GaiaTwin's and its
-# likelihood the Gaussian it claims to be, finding a companion in windows
-# GaiaTwin recorded through optics that are not the calibrated ones, and that
-# the pieces compose into an Octofitter model.
+# likelihood the Gaussian it claims to be, with a gradient carried by hand
+# that is the gradient, finding a companion in windows GaiaTwin recorded
+# through optics that are not the calibrated ones, and that the pieces
+# compose into an Octofitter model.
 
 using Test
 using OctofitterGaia
@@ -895,6 +896,38 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         buf = Bumper.default_buffer()
         image_transit_loglike(small, 1, w, z, rate, mom; buf)
         @test (@allocated image_transit_loglike(small, 1, w, z, rate, mom; buf)) == 0
+
+        # the gradient carried by hand is the gradient: against dual numbers through the code above, with and
+        # without shape modes, a likely bad state, no bad state, and shape modes at the window level too
+        pack(w, z, rate, mom, shape, fs, jit) = vcat(vec(w), vec(z), rate, vec(mom), collect(shape), fs, collect(jit))
+        function unpack(p, nshape)
+            o = 0
+            take(n) = (v = p[o+1:o+n]; o += n; v)
+            return reshape(take(4), 2, 2), reshape(take(4), 2, 2), take(2), reshape(take(12), 6, 2), Tuple(take(nshape)), take(1)[1], Tuple(take(2))
+        end
+        for (i2, pb, shape) in ((inst, 1e-3, (0.3, -0.2)), (ImageInstrument(inst; bad_sigma=5.0, bad_fraction=0.002), 0.5, (0.3,)),
+            (inst, 0.0, ()), (ImageInstrument(inst; nshapes=0), 1e-3, ()), (ImageInstrument(inst; window_shape_sigma=0.3), 1e-3, (0.1, 0.1, 0.1)))
+            d2 = EpochImages(table(2:2, 1:2; samples=(k, t) -> (s = Float64.(tr.samples[:, :, k, t]); s[3:5, 2k] .= NaN; s)), i2; p_bad=pb)
+            p0 = pack(w .+ [0.0 0.2; 0.3 0.1], z .+ [1.0 0.0; -2.0 0.5], rate, mom, shape, 1.02, (0.2, 4.0))
+            fref(p) = (v = unpack(p, length(shape)); first(image_transit_loglike(d2, 1, v[1:4]...; shape=v[5], flux_scale=v[6], jitter=v[7], buf)))
+            fdual(p) = (v = unpack(p, length(shape)); image_transit_loglike_dual(d2, 1, v[1:4]...; shape=v[5], flux_scale=v[6], jitter=v[7], buf))
+            gref = ForwardDiff.gradient(fref, p0)
+            a, b2, c, e, sh, fs, jit = unpack(p0, length(shape))
+            gw, gz, gr, gm, gs = zeros(2, 2), zeros(2, 2), zeros(2), zeros(6, 2), zeros(i2.nshapes)
+            res = image_transit_loglike_gradient!(gw, gz, gr, gm, gs, d2, 1, a, b2, c, e; shape=sh, flux_scale=fs, jitter=jit, buf)
+            @test res.ll ≈ fref(p0) rtol = 1e-12
+            scale = 1e-8 * maximum(abs, gref)
+            @test isapprox(pack(gw, gz, gr, gm, gs[1:length(shape)], res.flux_scale, res.jitter), gref; rtol=1e-8, atol=scale)
+            @test isapprox(ForwardDiff.gradient(fdual, p0), gref; rtol=1e-8, atol=scale)
+            # gradients are added to what the arrays hold
+            image_transit_loglike_gradient!(gw, gz, gr, gm, gs, d2, 1, a, b2, c, e; shape=sh, flux_scale=fs, jitter=jit, buf)
+            @test isapprox(gw, 2 .* reshape(gref[1:4], 2, 2); rtol=1e-8, atol=scale)
+        end
+        let gw = zeros(2, 2), gz = zeros(2, 2), gr = zeros(2), gm = zeros(6, 2), gs = zeros(3)
+            image_transit_loglike_gradient!(gw, gz, gr, gm, gs, small, 1, w, z, rate, mom; buf)
+            @test (@allocated image_transit_loglike_gradient!(gw, gz, gr, gm, gs, small, 1, w, z, rate, mom; buf)) == 0
+            @test_throws DimensionMismatch image_transit_loglike_gradient!(gw, gz, gr, gm, zeros(2), small, 1, w, z, rate, mom; buf)
+        end
 
         # what the data container refuses
         @test_throws ArgumentError EpochImages(table()[[1, 10, 2]], inst)                       # a transit's rows are not adjacent

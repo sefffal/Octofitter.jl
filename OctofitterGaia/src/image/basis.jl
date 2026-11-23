@@ -138,6 +138,54 @@ function image_fraction(b::ImageBasis, moments::AbstractVector, Δw, Δz)
     return acc
 end
 
+# One source at one sample: ((f, ∂f/∂Δw, ∂f/∂Δz), shapes), with `f` the
+# fraction of the source's light in a sample whose centre is (Δw, Δz) from
+# it and `shapes[m]` the change of that fraction per unit of shape mode m.
+# `cvec` is (1, moments...). Everything stays in registers: the numbers of
+# chromatic terms, of modes and of the modes' chromatic terms are type
+# parameters.
+@inline function _point(b::ImageBasis, cvec::NTuple{NT,Tc}, Δw, Δz, ::Val{M}, ::Val{NM}) where {NT,Tc,M,NM}
+    T = promote_type(Tc, typeof(Δw), typeof(Δz), Float64)
+    ux, uy = (Δw - b.x0) / b.hx, (Δz - b.y0) / b.hy
+    i, j = floor(Int, ux), floor(Int, uy)
+    f = fw = fz = zero(T)
+    shapes = ntuple(_ -> zero(T), Val(M))
+    (i >= 1 && i <= size(b.terms, 2) - 3 && j >= 1 && j <= size(b.terms, 3) - 3) || return (f, fw, fz), shapes
+    wx, wy = _cubic_weights(ux - i), _cubic_weights(uy - j)
+    dx, dy = _cubic_dweights(ux - i), _cubic_dweights(uy - j)
+    C, S = b.terms, b.modes
+    @inbounds for q in 1:4
+        jq = j + q - 1
+        r0 = r1 = zero(T)
+        rs = ntuple(_ -> zero(T), Val(M))
+        for p in 1:4
+            ip = i + p - 1
+            c = zero(Tc)
+            @simd for n in 1:NT
+                c += cvec[n] * C[n, ip, jq]
+            end
+            r0 += wx[p] * c
+            r1 += dx[p] * c
+            rs = rs .+ wx[p] .* _mode_nodes(S, cvec, ip, jq, Val(M), Val(NM))
+        end
+        f += wy[q] * r0
+        fw += wy[q] * r1
+        fz += dy[q] * r0
+        shapes = shapes .+ wy[q] .* rs
+    end
+    return (f, fw / b.hx, fz / b.hy), shapes
+end
+
+# The chromatic sum of every shape mode at one node of the table.
+@inline _mode_nodes(S::Array{Float32,4}, cvec::NTuple, ip, jq, ::Val{M}, ::Val{NM}) where {M,NM} =
+    ntuple(m -> _mode_node(S, cvec, m, ip, jq, Val(NM)), Val(M))
+@inline _mode_node(S::Array{Float32,4}, cvec::NTuple, m, ip, jq, ::Val{NM}) where {NM} =
+    +(ntuple(n -> @inbounds(cvec[n] * S[m, n, ip, jq]), Val(NM))...)
+
+# (1, moments...) as a tuple of `NT` numbers.
+@inline _cvec(moments::AbstractVector, ::Val{NT}) where {NT} =
+    ntuple(n -> n == 1 ? one(eltype(moments)) : @inbounds(moments[n-1]), Val(NT))
+
 """
     image_point!(out, basis, moments, Δw, Δz) -> out
 
@@ -149,34 +197,18 @@ change of the fraction per unit coefficient of shape mode `m`, for as many
 modes as `out` has room for. Zeros beyond the table.
 """
 function image_point!(out::AbstractVector, b::ImageBasis, moments::AbstractVector, Δw, Δz)
-    fill!(out, 0)
     M = length(out) - 3
-    M <= nshapes(b) || throw(DimensionMismatch("$M shape modes asked of a basis with $(nshapes(b))"))
-    ux, uy = (Δw - b.x0) / b.hx, (Δz - b.y0) / b.hy
-    i, j = floor(Int, ux), floor(Int, uy)
-    (i >= 1 && i <= size(b.terms, 2) - 3 && j >= 1 && j <= size(b.terms, 3) - 3) || return out
-    wx, wy = _cubic_weights(ux - i), _cubic_weights(uy - j)
-    dx, dy = _cubic_dweights(ux - i), _cubic_dweights(uy - j)
-    C, S = b.terms, b.modes
-    nm = min(length(moments), size(S, 2) - 1)
-    f = fw = fz = zero(eltype(out))
-    @inbounds for q in 1:4, p in 1:4
-        c = oftype(f, C[1, i+p-1, j+q-1])
-        for n in eachindex(moments)
-            c += moments[n] * C[n+1, i+p-1, j+q-1]
-        end
-        f += wx[p] * wy[q] * c
-        fw += dx[p] * wy[q] * c
-        fz += wx[p] * dy[q] * c
-        for m in 1:M
-            c = oftype(f, S[m, 1, i+p-1, j+q-1])
-            for n in 1:nm
-                c += moments[n] * S[m, n+1, i+p-1, j+q-1]
-            end
-            out[3+m] += wx[p] * wy[q] * c
-        end
+    0 <= M <= nshapes(b) || throw(DimensionMismatch("$M shape modes asked of a basis with $(nshapes(b))"))
+    length(moments) == nterms(b) - 1 ||
+        throw(DimensionMismatch("$(length(moments)) moments for a basis of degree $(nterms(b) - 1)"))
+    return _image_point!(out, b, moments, Δw, Δz, Val(M), Val(size(b.modes, 2)), Val(nterms(b)))
+end
+function _image_point!(out, b, moments, Δw, Δz, ::Val{M}, ::Val{NM}, ::Val{NT}) where {M,NM,NT}
+    (f, fw, fz), shapes = _point(b, _cvec(moments, Val(NT)), Δw, Δz, Val(M), Val(NM))
+    @inbounds out[1], out[2], out[3] = f, fw, fz
+    for m in 1:M
+        @inbounds out[3+m] = shapes[m]
     end
-    out[1], out[2], out[3] = f, fw / b.hx, fz / b.hy
     return out
 end
 

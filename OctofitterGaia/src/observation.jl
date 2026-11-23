@@ -22,9 +22,9 @@ end
 
 # The epoch images of the source; `functionals[k]` turns emitter k's spectrum
 # into its G photon rate and chromatic moments.
-struct ImageBlock{TTable<:Table,TF<:Tuple}
+struct ImageBlock{TTable<:Table,TF<:Tuple,TD<:EpochImages}
     table::TTable
-    data::EpochImages
+    data::TD
     functionals::TF
     sinψ::Vector{Float64}           # per window
     cosψ::Vector{Float64}
@@ -381,9 +381,15 @@ function _image_loglike(obs::GaiaDR4RawObs, ctx::ObsContext, refs::Tuple, baryce
     d = obs.images.data
     shape, flux_scale, jitter = _shape(ctx.θ_obs), _flux_scale(ctx.θ_obs), _jitter(ctx.θ_obs, d.instrument)
     return _image_transits(obs, ctx, refs, barycentre, zero(T)) do ll, t, w, z, rate, moments
-        ll + first(image_transit_loglike(d, t, w, z, rate, moments; shape, flux_scale, jitter, buf=ctx.buf))
+        ll + _image_transit_ll(d, t, w, z, rate, moments, shape, flux_scale, jitter, ctx.buf)
     end
 end
+
+# With first-order dual numbers the gradient is carried by hand (`image/adjoint.jl`); any other number type goes through the generic code.
+@inline _image_transit_ll(d, t, w, z, rate, moments, shape, flux_scale, jitter, buf) =
+    first(image_transit_loglike(d, t, w, z, rate, moments; shape, flux_scale, jitter, buf))
+@inline _image_transit_ll(d, t, w::AbstractMatrix{<:ForwardDiff.Dual{<:Any,Float64}}, z, rate, moments, shape, flux_scale, jitter, buf) =
+    image_transit_loglike_dual(d, t, w, z, rate, moments; shape, flux_scale, jitter, buf)
 
 # ---------------------------------------------------
 # Likelihood, and data from the model
