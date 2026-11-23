@@ -19,15 +19,28 @@ A source of light in the scene. The interface is
 sum to 1. `sed!` fills `out` with the flux density at the telescope
 [erg s⁻¹ cm⁻² cm⁻¹] averaged over each bin, for the whole emitter.
 `θ_body` is the body's variable namespace and `θ_system` the system's.
+
+An emitter whose light reaches the RVS epoch spectra also defines
+
+    rvs_grid(e)                                # the LogWaveGrid its spectrum is on
+    rvs_spectrum!(out, e, θ_body, θ_system)    # rest-frame spectrum on that grid
+
+with the spectrum at the instrument's resolution, before rotational
+broadening, as a flux density at the telescope. Only its ratio to the other
+emitters' matters (extinction, common to a system, is left out), and all
+emitters of a scene must share one grid.
 """
 abstract type AbstractEmitter end
 
 """
     Star(evol, lib)
+    Star(evol, lib, rvs)
 
 A star: one point, with the spectrum of the library `lib` at the body's
 `teff`, `logg` and `mh`, diluted by `(radius / distance)²` and reddened by
-the system's `av`.
+the system's `av`. `rvs` is the [`RVSLibrary`](@ref) its RVS-window spectrum
+comes from, needed only when RVS epoch spectra are modelled; it should be
+built from the same model atmospheres as `lib`.
 
 The body must define `teff` [K], `logg` [cgs], `mh` [dex] and `radius` [R☉],
 normally derived from its mass through the evolution model `evol`:
@@ -41,12 +54,14 @@ normally derived from its mass through the evolution model `evol`:
 and the system must define `plx` [mas] and `av`, the monochromatic
 extinction at 550 nm in magnitudes (`av = 0.0` for none).
 """
-struct Star{E,L<:SpectralLibrary} <: AbstractEmitter
+struct Star{E,L<:SpectralLibrary,R<:Union{Nothing,RVSLibrary}} <: AbstractEmitter
     evol::E
     lib::L
+    rvs::R
     extinction::Vector{Float64}     # A(λ)/A₀ on the library's bins
 end
-Star(evol, lib::SpectralLibrary) = Star(evol, lib, extinction_curve(lib.edges))
+Star(evol, lib::SpectralLibrary, rvs::Union{Nothing,RVSLibrary}=nothing) =
+    Star(evol, lib, rvs, extinction_curve(lib.edges))
 
 Base.show(io::IO, s::Star) = print(io, "Star(", s.evol, ", ", s.lib.name, ")")
 
@@ -56,6 +71,15 @@ scene_points(::Star, θ_body, θ_system, epoch) = ((0.0, 0.0, 1.0),)
 
 sed!(out, s::Star, θ_body, θ_system) =
     observed_sed!(out, s, θ_body.teff, θ_body.logg, θ_body.mh, θ_body.radius, θ_system.plx, θ_system.av)
+
+rvs_grid(s::Star{<:Any,<:Any,<:RVSLibrary}) = LogWaveGrid(s.rvs)
+
+function rvs_spectrum!(out, s::Star{<:Any,<:Any,<:RVSLibrary}, θ_body, θ_system)
+    rvs_surface_spectrum!(out, s.rvs, θ_body.teff, θ_body.logg, θ_body.mh)
+    dilution = (θ_body.radius * R_SUN_CM * θ_system.plx / (1000 * PARSEC_CM))^2
+    out .*= dilution
+    return out
+end
 
 """
     observed_sed!(out, star, teff, logg, mh, radius, plx, av) -> out

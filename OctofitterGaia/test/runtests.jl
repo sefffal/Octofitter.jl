@@ -15,6 +15,7 @@ using Octofitter: Table
 using Distributions
 using ForwardDiff
 using Random
+using LinearAlgebra
 
 const OG = OctofitterGaia
 const FIXTURES = joinpath(@__DIR__, "fixtures")
@@ -324,6 +325,237 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         @test all(x -> -0.01 < x < 0.045, cool.dG)
         @test all(x -> abs(x) < 0.03, warm.dcol)
         @test all(x -> abs(x) < 0.03, cool.dcol)
+    end
+
+    @testset "banded Cholesky" begin
+        rng = Random.Xoshiro(3)
+        n, b = 40, 3
+        M = [abs(i - j) <= b ? randn(rng) : 0.0 for i in 1:n, j in 1:n]
+        A = M * M' + 5I                               # bandwidth 2b
+        F = OG.BandedCholesky(A, 2b)
+        L = cholesky(Symmetric(A)).L
+        @test F.logdet ≈ logdet(A)
+        x = randn(rng, n)
+        @test OG.whiten!(copy(x), F) ≈ L \ x
+        @test OG.colour!(copy(x), F) ≈ L * x
+        # dual numbers go through the substitution
+        d = ForwardDiff.derivative(t -> sum(abs2, OG.whiten!(x .* t, F)), 1.0)
+        @test d ≈ 2 * dot(x, A \ x)
+        @test_throws ArgumentError OG.BandedCholesky(A - 100I, 2b)
+        # the small dense factorisation used for the marginalised modes
+        S = Matrix(Symmetric(A[1:6, 1:6]))
+        C = copy(S)
+        @test OG._cholesky_small!(C) ≈ logdet(S)
+        @test OG._forward_small!(x[1:6], C) ≈ cholesky(S).L \ x[1:6]
+        @test OG._cholesky_small!(-S) == -Inf
+    end
+
+    @testset "RVS components" begin
+        grid = LogWaveGrid(rvs)
+        @test length(grid) == OG.nwave(rvs)
+        h = OG.velocity_step(grid)
+        @test h ≈ 2.0 atol = 1e-9
+        raw = rvs_surface_spectrum!(zeros(length(grid)), rvs, 5777.0, 4.44, 0.0)
+        # below half a sample nothing happens; flux is conserved; lines get shallower
+        @test rotational_broaden!(similar(raw), raw, 0.9, grid) == raw
+        b20 = rotational_broaden!(similar(raw), raw, 20.0, grid)
+        inner = 30:length(raw)-30
+        @test sum(b20[inner]) ≈ sum(raw[inner]) rtol = 1e-3
+        @test minimum(b20) > minimum(raw)
+        # the kernel is that of a limb-darkened sphere: a delta function comes
+        # out with the profile's variance, vsini² ((1 - ε)/4 + 2ε/15) / (1 - ε/3) for ε = 0.6
+        δ = zeros(length(grid))
+        δ[200] = 1.0
+        k = rotational_broaden!(similar(δ), δ, 30.0, grid)
+        @test sum(k) ≈ 1
+        v = ((1:length(k)) .- 200) .* h
+        @test sum(k .* v) ≈ 0 atol = 1e-9
+        @test sum(k .* v .^ 2) ≈ 30.0^2 * (0.4 / 4 + 1.2 / 15) / (1 - 0.6 / 3) rtol = 3e-3
+        # continuous, with a continuous derivative, in vsini
+        s(vs) = rotational_broaden!(zeros(typeof(vs), length(raw)), raw, vs, grid)[300]
+        for vs in (1.0, 3.0, 5.0, 12.0)          # 1, 3, 5: where the kernel gains samples
+            @test s(vs - 1e-7) ≈ s(vs + 1e-7) rtol = 1e-9
+            @test ForwardDiff.derivative(s, vs - 1e-6) ≈ ForwardDiff.derivative(s, vs + 1e-6) rtol = 1e-3 atol = 1e-3 * abs(raw[300])
+        end
+        @test all(isfinite, ForwardDiff.derivative(vs -> rotational_broaden!(zeros(typeof(vs), length(raw)), raw, vs, grid), 3.0))
+        # derivatives in velocity: a shift by δv changes the sampled spectrum by dflux δv
+        c = rvs_component!(similar(raw), similar(raw), similar(raw), raw, 6.0, grid)
+        @test c.level ≈ sum(c.flux) / length(c.flux)
+        i = 300
+        @test c.dflux[i] ≈ -(c.flux[i+1] - c.flux[i-1]) / 2h
+        @test c.d2flux[i] ≈ (c.flux[i+1] - 2c.flux[i] + c.flux[i-1]) / h^2
+        # physics helpers
+        @test gravitational_redshift(4.438, 1.0) ≈ 0.636 atol = 2e-3
+        inst = RVSInstrument()
+        @test rvs_velocity(inst, 10.0, 200.0) ≈ 10.0 + OG.RVS_KAPPA * 200
+        @test abs(rvs_velocity(inst, 0.0, 200.0)) > 26       # 200 mas along scan is more than a resolution element
+        @test window_fraction(inst, 0.0) ≈ 1 atol = 1e-6
+        @test window_fraction(inst, inst.ac_halfwidth) ≈ 0.5 atol = 1e-6
+        @test window_fraction(inst, 300.0) > window_fraction(inst, 800.0) > window_fraction(inst, 1200.0)
+    end
+
+    @testset "RVS epoch spectra" begin
+        grid = LogWaveGrid(rvs)
+        inst = RVSInstrument()
+        wave = collect(849.0:0.025:855.0)
+        function component(teff, logg, mh, vsini, scale=1.0)
+            T = promote_type(typeof(teff), typeof(logg), typeof(mh), typeof(vsini), typeof(scale), Float64)
+            raw = rvs_surface_spectrum!(Vector{T}(undef, length(grid)), rvs, teff, logg, mh) .* scale
+            rvs_component!(similar(raw), similar(raw), similar(raw), raw, vsini, grid; inst.limb_darkening)
+        end
+        cA, cB = component(5800.0, 4.4, 0.0, 5.0), component(4000.0, 4.7, 0.0, 3.0, 0.3)
+        nt = 6
+        vA = [10.0, -20.0, 35.0, 0.0, 5.0, -12.0]
+        vB = [-40.0, 60.0, -80.0, 20.0, -5.0, 44.0]
+        σ = fill(0.01, length(wave), nt)
+        blank = RVSEpochSpectra(ones(length(wave), nt), σ, grid; instrument=inst, wavelength=wave)
+        rng = Random.Xoshiro(11)
+
+        # the model spectrum: normalised, and a single star shifts as a whole
+        m0 = rvs_transit_model(blank, 1, (cA,), (0.0,), (1.0,))
+        @test 0.9 < sum(m0) / length(m0) < 1.1
+        @test rvs_transit_model(blank, 1, (cA,), (0.0,), (7.0,)) ≈ m0           # one emitter: its weight cancels
+        dv = 0.1
+        m1 = rvs_transit_model(blank, 1, (cA,), (dv,), (1.0,))
+        B = zeros(length(wave), OG.nmodes(inst))
+        OG._rvs_design!(B, blank, 1, (cA,), (0.0,), (1.0,))
+        @test maximum(abs, m1 .- m0 .- dv .* B[:, end-1]) < 0.02 * maximum(abs, m1 .- m0)     # the zero-point mode is ∂m/∂v
+        # the width mode is what a broader line-spread function does
+        @test maximum(abs, B[:, end]) > 0.05
+        # a blend is the weighted sum of its parts
+        mA = rvs_transit_model(blank, 1, (cA,), (vA[1],), (1.0,))
+        mB = rvs_transit_model(blank, 1, (cB,), (vB[1],), (1.0,))
+        mAB = rvs_transit_model(blank, 1, (cA, cB), (vA[1], vB[1]), (1.0, 0.9))
+        fB = 0.9 * cB.level / (cA.level + 0.9 * cB.level)
+        @test mAB ≈ (1 - fB) .* mA .+ fB .* mB
+        # velocities that take the bins off the library grid are impossible, not an error
+        @test first(rvs_transit_loglike(RVSEpochSpectra(ones(length(wave), 1), σ[:, 1:1], grid; instrument=inst, wavelength=wave, p_bad=0.0),
+            1, (cA,), (1500.0,), (1.0,))) == -Inf
+
+        # simulate, with gaps, and compare with the dense Gaussian the model defines
+        flux = reduce(hcat, [rvs_transit_simulate(rng, blank, t, (cA, cB), (vA[t], vB[t]), (1.0, 0.9)) for t in 1:nt])
+        flux[40:47, 2] .= NaN
+        data = RVSEpochSpectra(flux, σ, grid; instrument=inst, wavelength=wave)
+        @test OG.ntransits(data) == nt
+        @test length(data.transits[2].bins) == length(wave) - 8
+        for t in (1, 2)
+            tr = data.transits[t]
+            n, J = length(tr.bins), OG.nmodes(inst)
+            Bt = zeros(n, J)
+            OG._rvs_design!(Bt, data, t, (cA, cB), (vA[t], vB[t]), (1.0, 0.9))
+            K, _ = OG._rvs_covariance(tr.bins, view(σ, :, t), wave, inst)
+            Λ = Diagonal([1 / OG._mode_precision(inst, j) for j in 1:J])
+            C = Symmetric(K, :L) + Bt * Λ * Bt'
+            r = flux[tr.bins, t] .- Bt[:, 1]
+            dense = -(dot(r, C \ r) + logdet(C) + n * log(2π)) / 2
+            ll, ll_good = rvs_transit_loglike(data, t, (cA, cB), (vA[t], vB[t]), (1.0, 0.9))
+            @test ll_good ≈ dense rtol = 1e-9
+            @test ll ≈ log((1 - 1e-3) * exp(ll_good - dense) + 1e-3 * exp(tr.ll_bad - dense)) + dense
+            @test tr.ll_bad < ll_good - 100          # a good spectrum is not mistaken for a bad one
+        end
+        @test rvs_transit_simulate(rng, data, 3, (cA, cB), (vA[3], vB[3]), (1.0, 0.9); add_noise=false) ==
+              rvs_transit_model(data, 3, (cA, cB), (vA[3], vB[3]), (1.0, 0.9))
+        # a spectrum unlike the model falls to the bad state instead of -Inf
+        junk = copy(flux)
+        junk[:, 1] .= 1 .+ 0.5 .* randn(rng, length(wave))
+        jd = RVSEpochSpectra(junk, σ, grid; instrument=inst, wavelength=wave)
+        llj, llj_good = rvs_transit_loglike(jd, 1, (cA, cB), (vA[1], vB[1]), (1.0, 0.9))
+        @test llj ≈ log(1e-3) + jd.transits[1].ll_bad
+        @test llj_good < llj - 1000
+        # subsetting by transit
+        sub = data[[2, 5]]
+        @test first(rvs_transit_loglike(sub, 1, (cA, cB), (vA[2], vB[2]), (1.0, 0.9))) ==
+              first(rvs_transit_loglike(data, 2, (cA, cB), (vA[2], vB[2]), (1.0, 0.9)))
+        @test_throws ArgumentError RVSEpochSpectra(fill(NaN, length(wave), 1), σ[:, 1:1], grid; wavelength=wave)
+
+        # the total as a function of every kind of parameter: gradient, and the truth is near the top
+        total(x) = begin
+            a, b = component(x[1], x[2], x[3], x[4]), component(x[5], x[6], x[7], x[8], x[9])
+            sum(first(rvs_transit_loglike(data, t, (a, b), (vA[t] + x[10], vB[t] + x[11]), (one(x[12]), x[12]))) for t in 1:nt)
+        end
+        x0 = [5800.0, 4.4, 0.0, 5.0, 4000.0, 4.7, 0.0, 3.0, 0.3, 0.0, 0.0, 0.9]
+        g = ForwardDiff.gradient(total, x0)
+        @test all(isfinite, g)
+        gfd = map(eachindex(x0)) do i
+            e = zeros(length(x0))
+            e[i] = 1e-5 * max(abs(x0[i]), 1.0)
+            (total(x0 .+ e) - total(x0 .- e)) / 2e[i]
+        end
+        @test isapprox(g, gfd; rtol=2e-3, atol=2e-3)
+        H = ForwardDiff.hessian(x -> total(vcat(x0[1:9], x, x0[12])), [0.0, 0.0])
+        step = -(H \ g[10:11])
+        σv = sqrt.(diag(inv(-H)))
+        @test all(abs.(step) .< 4 .* σv)
+        @test σv[1] < 0.5 && σv[2] < 3.0
+        @test total(setindex!(copy(x0), 3.0, 10)) < total(x0) - 20
+        @test (@allocated rvs_transit_loglike(data, 1, (cA, cB), (vA[1], vB[1]), (1.0, 0.9))) == 0
+    end
+
+    # GaiaTwin simulates a double-lined pair: `composite_pixels` is its
+    # noise-free blend on detector pixels, `dr4_epoch_spectrum` the published
+    # format (three CCDs at random sub-pixel phases, noise, linear
+    # interpolation onto the 961 bins, average, normalisation). The fixture
+    # holds GaiaTwin's own library spectra, so the instrument is the same and
+    # what is tested is the block's arithmetic and its noise model.
+    @testset "RVS epoch spectra against GaiaTwin" begin
+        fx = OG.h5open(joinpath(FIXTURES, "gaiatwin_rvs_fixture.h5")) do f
+            (; (Symbol(k) => read(f[k]) for k in keys(f))...)
+        end
+        grid = LogWaveGrid(fx.ln_wave0, fx.dln_wave, size(fx.spectra, 1))
+        nt = size(fx.velocity, 2)
+        c = ntuple(2) do k
+            raw = Float64.(fx.spectra[:, k])
+            rvs_component!(similar(raw), similar(raw), similar(raw), raw, 0.0, grid)
+        end
+        v(t, dv=(0.0, 0.0)) = (fx.velocity[1, t] + dv[1], fx.velocity[2, t] + dv[2])
+        w(t, f=1.0) = (fx.electrons[1, t], f * fx.electrons[2, t])
+
+        # the mean, on GaiaTwin's detector pixels: equal up to the overall scale.
+        # (GaiaTwin interpolates its library linearly, the block cubically.)
+        pix = RVSEpochSpectra(ones(length(fx.pixel_wave), nt), fill(0.01, length(fx.pixel_wave), nt), grid; wavelength=fx.pixel_wave)
+        for t in 1:nt
+            ratio = fx.composite[:, t] ./ rvs_transit_model(pix, t, c, v(t), w(t))
+            @test maximum(abs, ratio ./ (sum(ratio) / length(ratio)) .- 1) < 1e-4
+        end
+
+        # the published format. GaiaTwin's spectra have no template mismatch.
+        inst = RVSInstrument(mismatch_amplitude=1e-4)
+        data = RVSEpochSpectra(Float64.(fx.flux), Float64.(fx.flux_error), grid; instrument=inst)
+        @test data.wavelength == fx.wave
+        ll(x) = sum(first(rvs_transit_loglike(data, t, c, v(t, (x[1], x[2])), w(t, x[3]))) for t in 1:nt)
+        x = [0.0, 0.0, 1.0]
+        H = ForwardDiff.hessian(ll, x)
+        for _ in 1:4
+            H = ForwardDiff.hessian(ll, x)
+            x -= H \ ForwardDiff.gradient(ll, x)
+        end
+        σx = sqrt.(diag(inv(-H)))
+        # both velocities and the flux ratio are recovered within their errors
+        # (over 40 realisations of this scene the pulls have mean 0.2, -0.1,
+        # 0.4 and standard deviation 0.6, 1.0, 0.95)
+        @test all(abs.(x .- [0, 0, 1]) .< 3.5 .* σx)
+        @test σx[1] < 0.25 && σx[2] < 0.7 && σx[3] < 0.03
+        # the normalisation and the smoothing by interpolation land in the modes
+        tr = data.transits[1]
+        J = OG.nmodes(inst)
+        B = zeros(length(tr.bins), J)
+        OG._rvs_design!(B, data, 1, c, v(1), w(1))
+        Z = copy(B)
+        foreach(j -> OG.whiten!(view(Z, :, j), tr.chol), 1:J)
+        P = Diagonal([OG._mode_precision(inst, j) for j in 1:J])
+        ĉ = (P + Z'Z) \ (Z' * tr.white + P * [1; zeros(J - 1)])
+        @test 0.9 < ĉ[1] < 1.0                   # the brightest 30 % of bins sit above the mean
+        @test 0.03 < ĉ[end] < 0.15               # interpolation broadens the line-spread function
+        # residuals: unit variance, neighbours correlated as the block assumes
+        r = (fx.flux[tr.bins, 1] .- B * ĉ) ./ fx.flux_error[tr.bins, 1]
+        @test 0.9 < sqrt(sum(abs2, r) / length(r)) < 1.1
+        ρ = sum(r[1:end-1] .* r[2:end]) / sum(abs2, r)
+        @test abs(ρ - inst.interp_corr) < 0.1
+        @test 0.9 < sum(abs2, tr.white .- Z * ĉ) / length(r) < 1.1
+        # ignoring the correlation claims more than the data hold
+        d0 = RVSEpochSpectra(Float64.(fx.flux), Float64.(fx.flux_error), grid; instrument=RVSInstrument(mismatch_amplitude=1e-4, interp_corr=0.0))
+        H0 = ForwardDiff.hessian(y -> sum(first(rvs_transit_loglike(d0, t, c, v(t, (y[1], y[2])), w(t, y[3]))) for t in 1:nt), x)
+        @test all(sqrt.(diag(inv(-H0))) .< σx)
     end
 
     @testset "in an Octofitter model" begin
