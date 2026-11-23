@@ -21,6 +21,8 @@ using SpecialFunctions: erf
 include("interp.jl")
 include("passbands.jl")
 include("evolution/mist.jl")
+include("evolution/bhac15.jl")
+include("evolution/seam.jl")
 include("spectra/library.jl")
 include("spectra/rvs.jl")
 include("spectra/seam.jl")
@@ -29,7 +31,7 @@ include("rvs/components.jl")
 include("rvs/epoch_spectra.jl")
 include("emitters.jl")
 
-export MISTGrid, SpectralLibrary, RVSLibrary, SeamedLibrary, Star, SEDFunctionals, BandRate
+export MISTGrid, BHAC15Grid, SeamedEvolution, SpectralLibrary, RVSLibrary, SeamedLibrary, Star, SEDFunctionals, BandRate
 export gaia_passbands, photon_rate, chromatic_moments!, surface_sed!, sed!, scene_points
 export rvs_weights!, rvs_surface_spectrum!
 export LogWaveGrid, RVSInstrument, RVSEpochSpectra, RVSComponent, GaussianProfile

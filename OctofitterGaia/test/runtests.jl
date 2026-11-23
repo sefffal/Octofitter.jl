@@ -643,6 +643,64 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
             rvs.mean, rvs.basis, rvs.weights, rvs.present, rvs.rms_wave, rvs.resolving_power, rvs.path))
     end
 
+    @testset "BHAC15 and the mass seam" begin
+        low = BHAC15Grid(joinpath(FIXTURES, "bhac15_fixture.txt"))
+        # the table at its nodes: 0.1 M☉ at 5 Gyr is 2811 K, 0.124 R☉, log g 5.25
+        s = low(0.1, log10(5e9))
+        @test s.teff ≈ 2811 atol = 0.01
+        @test s.radius ≈ 0.124 atol = 1e-6
+        @test s.logg ≈ 5.25 atol = 0.01
+        @test low(0.2, log10(4e9)).teff ≈ 3262 atol = 0.01
+        @test 2811 < low(0.105, 9.68).teff < 2916                   # between nodes
+        @test isnan(low(0.05, log10(5e9)).teff)                      # the 5 Gyr isochrone starts at 0.07 M☉
+        @test isnan(low(0.1, 9.3).teff) && isnan(low(0.1, 10.0).teff)
+        @test isnan(low(2.0, 9.7).radius) && isnan(low(-1.0, 9.7).radius)
+        @test all(isfinite, ForwardDiff.gradient(x -> low(x[1], x[2]).radius, [0.09, 9.65]))
+
+        seam = SeamedEvolution(low, evol)
+        age = 9.66
+        # the stellar model, untouched, from the top of the overlap up
+        @test seam(0.5, age, 0.1) == evol(0.5, age, 0.1)
+        @test seam(0.15, age, 0.1) == evol(0.15, age, 0.1)
+        # MIST alone stops at 0.1 M☉; the seamed model goes on
+        @test isnan(evol(0.09, age, 0.0).teff)
+        x = seam(0.09, age, 0.0)
+        @test 2500 < x.teff < 2800 && 0.10 < x.radius < 0.12 && 5.2 < x.logg < 5.4
+        @test x.mass_now ≈ 0.09 rtol = 0.02
+        @test x.logL ≈ 2log10(x.radius) + 4log10(x.teff / OG.TEFF_SUN)
+        @test isnan(x.eep) && !isnan(seam(0.12, age, 0.0).eep)
+        @test isnan(seam(0.04, age, 0.0).teff)                       # below BHAC15 at this age
+        @test isnan(seam(0.09, 9.9, 0.0).teff)                       # outside the MIST fixture's ages
+        # continuous, with a continuous slope, at both ends of the overlap and at every metallicity
+        for feh in (-0.2, 0.0, 0.2), m in (0.10, 0.15), q in (:teff, :radius, :logg)
+            f(mass) = log(getproperty(seam(mass, age, feh), q))
+            @test f(m * (1 - 1e-7)) ≈ f(m * (1 + 1e-7)) atol = 1e-6
+            @test ForwardDiff.derivative(f, m * (1 - 1e-6)) ≈ ForwardDiff.derivative(f, m * (1 + 1e-6)) rtol = 1e-3 atol = 1e-3
+        end
+        # in the overlap the two models are close at solar metallicity, so the blend stays between them
+        for m in (0.11, 0.13)
+            a, b, c = low(m, age).teff, evol(m, age, 0.0).teff, seam(m, age, 0.0).teff
+            @test abs(a - b) < 60 && min(a, b) - 30 < c < max(a, b) + 30
+        end
+        # monotonic in mass through the seam
+        ms = 0.075:0.0025:0.2
+        @test issorted([seam(m, age, 0.0).teff for m in ms])
+        @test issorted([seam(m, age, 0.0).radius for m in ms])
+        # below the join the metallicity dependence is that of the star at its top
+        ratio(m) = seam(m, age, -0.2).teff / seam(m, age, 0.0).teff
+        @test ratio(0.09) ≈ ratio(0.15) rtol = 1e-10
+        @test ratio(0.15) > 1.01
+        @test seam(0.09, age, -0.2).mh == evol(0.15, age, -0.2).mh
+        g = ForwardDiff.gradient(v -> seam(v[1], v[2], v[3]).teff, [0.12, age, 0.05])
+        @test all(isfinite, g) && g[1] > 0 && g[3] < 0
+        @test_throws ArgumentError SeamedEvolution(low, evol; mass=(0.2, 0.1))
+        # as the evolution model of a star
+        star = Star(seam, lib)
+        rate = BandRate(star, :G)
+        lo, hi = seam(0.125, age, 0.0), seam(0.2, age, 0.0)
+        @test 0 < rate(lo.teff, lo.logg, lo.mh, lo.radius, 50.0, 0.0) < rate(hi.teff, hi.logg, hi.mh, hi.radius, 50.0, 0.0)
+    end
+
     @testset "in an Octofitter model" begin
         star = Star(evol, lib)
         rate_G = BandRate(star, :G)
