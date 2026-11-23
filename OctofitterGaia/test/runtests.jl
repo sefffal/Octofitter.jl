@@ -1,12 +1,14 @@
-# OctofitterGaia — the emitter layer.
+# OctofitterGaia: the emitter layer, the RVS likelihood and the image basis.
 #
-# These tests run on two small fixtures cut from the full products (see
-# fixtures/make_fixtures.jl): a few MIST isochrones around solar age and
-# metallicity, and the main-sequence part of a spectral library. They cover
-# what the layer promises: that the tables are reproduced at their nodes,
-# that everything in between is continuous and differentiable, that photon
-# rates are on Gaia's scale, and that the pieces compose into an Octofitter
-# model.
+# These tests run on small fixtures (see fixtures/): a few MIST isochrones
+# around solar age and metallicity, the main-sequence part of a spectral
+# library, four BHAC15 isochrones, and spectra and images simulated by
+# GaiaTwin. They cover what the package promises: that the tables are
+# reproduced at their nodes, that everything in between is continuous and
+# differentiable, that photon rates are on Gaia's scale, that the likelihood
+# of the RVS epoch spectra is the Gaussian it claims to be and recovers what
+# GaiaTwin put in, that the image model's mean is GaiaTwin's, and that the
+# pieces compose into an Octofitter model.
 
 using Test
 using OctofitterGaia
