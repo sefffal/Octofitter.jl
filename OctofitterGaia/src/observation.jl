@@ -93,10 +93,16 @@ from the emitter's spectrum.
 # Variables
 
 Read from each emitter's body: whatever its emitter needs (`teff`, `logg`,
-`mh`, `radius` for a [`Star`](@ref)); and for the RVS spectra `vsini`
-[km/s], the rotational broadening (none if absent), and `drv` [**m/s**, as
-every radial velocity in Octofitter], the zero point of that body's
-template (zero if absent).
+`mh`, `radius` for a [`Star`](@ref)); for the RVS spectra `vsini` [km/s],
+the rotational broadening (none if absent), and `drv` [**m/s**, as every
+radial velocity in Octofitter], the zero point of that body's template
+(zero if absent); and for the images, all optional, what the body's light
+may differ by from what its emitter predicts: `dG` [mag], an offset of its
+G magnitude, and `dchroma1`, `dchroma2`, offsets of the first two chromatic
+moments of its image (its colour as the optics see it). Without them a
+star's flux and the colour of its image are exact functions of its mass,
+and at the signal-to-noise ratio of a bright star the pixels then
+constrain the mass through the atmosphere library's colours.
 
 Of the observation itself, all optional:
 
@@ -306,6 +312,15 @@ end
 _npoints(emitters::Tuple, θ_bodies::Tuple, θ_system, epoch) =
     sum(map((e, θ_body) -> length(scene_points(e, θ_body, θ_system, epoch)), emitters, θ_bodies))
 
+# What a body's light is allowed to differ by from what its emitter predicts: its G flux, and the first two
+# chromatic moments of its image.
+@inline _flux_factor(θ_body) = hasproperty(θ_body, :dG) ? exp10(-0.4 * θ_body.dG) : 1.0
+@inline function _offset_moments!(c, θ_body)
+    hasproperty(θ_body, :dchroma1) && (@inbounds c[1] += θ_body.dchroma1)
+    hasproperty(θ_body, :dchroma2) && (@inbounds c[2] += θ_body.dchroma2)
+    return c
+end
+
 # G photon rate and chromatic moments of every point: `rate[k]`, `moments[:, k]`, from point `k + 1` on.
 @inline _fill_spectra!(rate, moments, k, ::Tuple{}, ::Tuple{}, ::Tuple{}, θ_system, epoch, buf) = k
 @inline function _fill_spectra!(rate, moments, k, emitters::Tuple, θ_bodies::Tuple, functionals::Tuple, θ_system, epoch, buf)
@@ -314,7 +329,8 @@ _npoints(emitters::Tuple, θ_bodies::Tuple, θ_system, epoch) =
         sed = @alloc(eltype(rate), nbins(emitter))
         sed!(sed, emitter, θ_body, θ_system)
         k0 = k + 1
-        total = chromatic_moments!(view(moments, :, k0), f, sed)
+        total = chromatic_moments!(view(moments, :, k0), f, sed) * _flux_factor(θ_body)
+        _offset_moments!(view(moments, :, k0), θ_body)
         for (_, _, weight) in scene_points(emitter, θ_body, θ_system, epoch)
             k += 1
             rate[k] = weight * total
@@ -413,10 +429,11 @@ observation does not have is `nothing`.
   - `rvs = (; flux, velocity, weight, epochs)`: the epoch spectra
     `flux[bin, transit]`, and each emitter's velocity [km/s] and weight in
     each transit, `[emitter, transit]`;
-  - `images = (; samples, w, z, rate)`: the expected electrons of each
-    window, a matrix per row of the image table; the local-plane position
-    [mas] of each point of the scene in each window, `[point, window]`; and
-    each point's G photon rate [e⁻ s⁻¹].
+  - `images = (; samples, w, z, rate, moments)`: the expected electrons of
+    each window, a matrix per row of the image table; the local-plane
+    position [mas] of each point of the scene in each window,
+    `[point, window]`; each point's G photon rate [e⁻ s⁻¹]; and its
+    chromatic moments, `[degree, point]`.
 """
 function Octofitter.simulate(obs::GaiaDR4RawObs, ctx::ObsContext)
     return (; rvs=obs.rvs === nothing ? nothing : _simulate_rvs(obs, ctx, (t, c, v, w) -> rvs_transit_model(obs.rvs.spectra, t, c, v, w)),
@@ -451,7 +468,9 @@ function _simulate_images(obs::GaiaDR4RawObs, ctx::ObsContext, rng)
     samples = Matrix{Float64}[]
     ws, zs = Vector{Float64}[], Vector{Float64}[]
     rates = Float64[]
+    chroma = Matrix{Float64}(undef, 0, 0)
     _image_transits(obs, ctx, refs, barycentre, nothing) do _, t, w, z, rate, moments
+        isempty(rates) && (chroma = collect(Float64, moments))
         append!(samples, rng === nothing ? image_transit_model(d, t, w, z, rate, moments; shape, flux_scale) :
                          image_transit_simulate(rng, d, t, w, z, rate, moments; shape, flux_scale, jitter))
         for q in axes(w, 2)
@@ -461,7 +480,7 @@ function _simulate_images(obs::GaiaDR4RawObs, ctx::ObsContext, rng)
         isempty(rates) && append!(rates, flux_scale .* rate)
         nothing
     end
-    return (; samples, w=reduce(hcat, ws), z=reduce(hcat, zs), rate=rates)
+    return (; samples, w=reduce(hcat, ws), z=reduce(hcat, zs), rate=rates, moments=chroma)
 end
 
 function Octofitter.generate_from_params(obs::GaiaDR4RawObs, ctx::ObsContext; add_noise)

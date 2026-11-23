@@ -1151,6 +1151,25 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         @test ℓv ≈ ℓi
         @test liket(vobs, θv(flux_scale=1.2)) < ℓv - 10 && liket(vobs, θv(psf1=3.0)) < ℓv - 10
         @test liket(vobs, θv(jitter_al=5.0)) < ℓv - 1
+        # a body's light may differ from what its emitter predicts: in G flux and in the colour of its image
+        Ao = Body(name="A", variables=@variables begin
+            mass ~ truncated(Normal(0.9, 0.03), lower=0.8, upper=1.0)
+            star = $evol(mass, system.logage, system.feh)
+            teff = star.teff
+            logg = star.logg
+            mh = star.mh
+            radius = star.radius
+            dG ~ Normal(0, 0.05)
+            dchroma1 ~ Normal(0, 0.02)
+            dchroma2 ~ Normal(0, 0.02)
+        end)
+        osys = System(name="rawpair", bodies=[Ao, b], observations=[iobs, astrom], variables=frame)
+        θo(; kw...) = merge(θ, (; bodies=merge(θ.bodies, (; A=merge(θ.bodies.A, (; dG=0.0, dchroma1=0.0, dchroma2=0.0, kw...))))))
+        osim(θ2) = Octofitter.simulate(iobs, contexts(osys, θ2)[1]).images
+        @test osim(θo()).rate ≈ isim.images.rate && size(isim.images.moments) == (6, 2)
+        @test osim(θo(dG=0.1)).rate ≈ isim.images.rate .* [10^-0.04, 1]
+        @test osim(θo(dchroma1=0.01, dchroma2=-0.02)).moments ≈ osim(θo()).moments .+ [0.01 0; -0.02 0; zeros(4, 2)]
+        @test osim(θo(dchroma1=0.01)).samples[1] != osim(θo()).samples[1]
         # the log density and its gradient through the whole model, images included
         imodel = Octofitter.LogDensityModel(Octofitter.generate_from_params(vsys, θv(); add_noise=true); verbosity=0)
         θit = imodel.link(Octofitter.sample_priors(Random.Xoshiro(9), vsys))

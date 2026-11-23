@@ -147,10 +147,10 @@ end
 @inline function _point(b::ImageBasis, cvec::NTuple{NT,Tc}, Δw, Δz, ::Val{M}, ::Val{NM}) where {NT,Tc,M,NM}
     T = promote_type(Tc, typeof(Δw), typeof(Δz), Float64)
     ux, uy = (Δw - b.x0) / b.hx, (Δz - b.y0) / b.hy
-    i, j = floor(Int, ux), floor(Int, uy)
     f = fw = fz = zero(T)
     shapes = ntuple(_ -> zero(T), Val(M))
-    (i >= 1 && i <= size(b.terms, 2) - 3 && j >= 1 && j <= size(b.terms, 3) - 3) || return (f, fw, fz), shapes
+    _in_table(b, ux, uy) || return (f, fw, fz), shapes
+    i, j = floor(Int, ux), floor(Int, uy)
     wx, wy = _cubic_weights(ux - i), _cubic_weights(uy - j)
     dx, dy = _cubic_dweights(ux - i), _cubic_dweights(uy - j)
     C, S = b.terms, b.modes
@@ -175,6 +175,9 @@ end
     end
     return (f, fw / b.hx, fz / b.hy), shapes
 end
+
+# Whether the four-by-four stencil about table coordinates (ux, uy) is inside the table; false for NaN.
+@inline _in_table(b::ImageBasis, ux, uy) = (ux >= 1) & (ux < size(b.terms, 2) - 2) & (uy >= 1) & (uy < size(b.terms, 3) - 2)
 
 # The chromatic sum of every shape mode at one node of the table.
 @inline _mode_nodes(S::Array{Float32,4}, cvec::NTuple, ip, jq, ::Val{M}, ::Val{NM}) where {M,NM} =

@@ -34,10 +34,9 @@ import ForwardDiff
 # the stencil (i, j, tx, ty), with i = 0 beyond the table.
 @inline function _point2(b::ImageBasis, cvec::NTuple{NT,Float64}, Δw, Δz, ::Val{M}, ::Val{NM}) where {NT,M,NM}
     ux, uy = (Δw - b.x0) / b.hx, (Δz - b.y0) / b.hy
-    i, j = floor(Int, ux), floor(Int, uy)
     z3 = ntuple(_ -> 0.0, Val(M))
-    (i >= 1 && i <= size(b.terms, 2) - 3 && j >= 1 && j <= size(b.terms, 3) - 3) ||
-        return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0), z3, z3, z3, (0, 0, 0.0, 0.0)
+    _in_table(b, ux, uy) || return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0), z3, z3, z3, (0, 0, 0.0, 0.0)
+    i, j = floor(Int, ux), floor(Int, uy)
     tx, ty = ux - i, uy - j
     wx, wy = _cubic_weights(tx), _cubic_weights(ty)
     dx, dy = _cubic_dweights(tx), _cubic_dweights(ty)
