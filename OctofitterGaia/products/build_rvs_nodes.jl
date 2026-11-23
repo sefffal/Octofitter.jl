@@ -1,9 +1,9 @@
 # Build the RVS-window node product from the reduced library spectra written
 # by a fetch script (`fetch_phoenix_aces.jl`).
 #
-# Each model's native-resolution cut-out is convolved with a Gaussian
-# line-spread function of resolving power R and put on a grid uniform in
-# ln λ. The log fluxes of all models are then compressed by a principal
+# Each model's cut-out is brought to a Gaussian line-spread function of
+# resolving power R (libraries distributed already broadened are convolved
+# with the difference in quadrature) and put on a grid uniform in ln λ. The log fluxes of all models are then compressed by a principal
 # component analysis: log10 F(λ) = mean(λ) + Σ_i w_i e_i(λ), and what is
 # interpolated between models is the handful of weights w_i.
 #
@@ -33,9 +33,10 @@ const C_KMS = 299792.458
 # (FWHM = λ/R) and return it on the grid ln λ = lnw0 + i·dlnw. The work is
 # done on a grid `over` times finer, so the output samples are averages over
 # their own width.
-function lsf_resample(wave, flux, lnw0, dlnw, n; R, over=4)
+function lsf_resample(wave, flux, lnw0, dlnw, n; R, R_native=Inf, over=4)
     h = dlnw / over
-    σ = 1 / (R * 2sqrt(2log(2)))                      # in ln λ
+    R_native > R || error("the library's resolving power $R_native is not above the requested $R")
+    σ = sqrt(1 / R^2 - 1 / R_native^2) / (2sqrt(2log(2)))      # in ln λ
     half = ceil(Int, 5σ / h)
     kernel = [exp(-0.5 * (k * h / σ)^2) for k in -half:half]
     kernel ./= sum(kernel)
@@ -67,6 +68,8 @@ end
 
 function main(stage, out, ncomp, R, step, lo, hi)
     wave = h5read(joinpath(stage, "grid.h5"), "rvs_wave_angstrom") ./ 10     # nm
+    meta = h5open(f -> Dict(k => read(attributes(f)[k]) for k in keys(attributes(f))), joinpath(stage, "grid.h5"))
+    R_native = meta["resolving_power"]
     dlnw = step / C_KMS
     lnw0 = log(lo)
     n = floor(Int, (log(hi) - lnw0) / dlnw) + 1
@@ -76,7 +79,7 @@ function main(stage, out, ncomp, R, step, lo, hi)
             h5open(joinpath(stage, zdir, name)) do f
                 a = attributes(f)
                 (haskey(a, "PHXALPHA") ? read(a["PHXALPHA"]) : 0.0) == 0 || return
-                flux = lsf_resample(wave, Float64.(read(f["rvs"])), lnw0, dlnw, n; R)
+                flux = lsf_resample(wave, Float64.(read(f["rvs"])), lnw0, dlnw, n; R, R_native)
                 all(>(0), flux) || error("non-positive flux in $name")
                 push!(rows, (; teff=read(a["PHXTEFF"]), logg=read(a["PHXLOGG"]), mh=read(a["PHXM_H"]), lf=log10.(flux)))
             end
@@ -117,9 +120,7 @@ function main(stage, out, ncomp, R, step, lo, hi)
     fill_missing!(weights, present)
 
     h5open(out, "w") do f
-        attributes(f)["library"] = "PHOENIX-ACES-AGSS-COND-2011 (HiRes)"
-        attributes(f)["reference"] = "Husser et al. 2013, A&A 553, A6"
-        attributes(f)["source"] = "https://ftp.gwdg.de/pub/misc/phoenix/HiResFITS"
+        foreach(k -> attributes(f)[k] = meta[k], ("library", "reference", "source"))
         attributes(f)["flux_unit"] = "log10 of surface flux density per unit wavelength, erg s-1 cm-2 cm-1"
         attributes(f)["wavelength"] = "vacuum, nm; ln(wave) = ln_wave0 + i * dln_wave, i = 0 … n_wave - 1"
         attributes(f)["lsf"] = "Gaussian, FWHM = wavelength / resolving_power"

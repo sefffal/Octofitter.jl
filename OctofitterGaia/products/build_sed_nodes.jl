@@ -25,7 +25,8 @@ include(joinpath(@__DIR__, "common.jl"))
 
 function load_staging(stage)
     grid = h5open(joinpath(stage, "grid.h5")) do f
-        (; edges=read(f["sed_edges_angstrom"]) ./ 10)
+        (; edges=read(f["sed_edges_angstrom"]) ./ 10,
+            meta=Dict(k => read(attributes(f)[k]) for k in ("library", "reference", "source")))
     end
     rows = NamedTuple[]
     for zdir in filter(d -> isdir(joinpath(stage, d)), readdir(stage))
@@ -75,9 +76,7 @@ function main(stage, out, lo, hi, step)
     nfilled = count(!, present)
     fill_missing!(log_flux, present)
     h5open(out, "w") do f
-        attributes(f)["library"] = "PHOENIX-ACES-AGSS-COND-2011 (HiRes)"
-        attributes(f)["reference"] = "Husser et al. 2013, A&A 553, A6"
-        attributes(f)["source"] = "https://ftp.gwdg.de/pub/misc/phoenix/HiResFITS"
+        foreach(k -> attributes(f)[k] = grid.meta[k], ("library", "reference", "source"))
         attributes(f)["flux_unit"] = "log10 of surface flux density per unit wavelength, erg s-1 cm-2 cm-1, bin average"
         attributes(f)["wavelength"] = "vacuum, nm"
         attributes(f)["alpha"] = 0.0

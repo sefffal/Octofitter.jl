@@ -14,6 +14,7 @@
 #   julia --project=. fetch_phoenix_aces.jl <out dir> [ntasks=8] [Z-1.0 Z-0.5 Z-0.0 Z+0.5]
 
 using Downloads, FITSIO, HDF5
+include(joinpath(@__DIR__, "common.jl"))
 
 const BASE = "https://ftp.gwdg.de/pub/misc/phoenix/HiResFITS"
 const LIB = "PHOENIX-ACES-AGSS-COND-2011"
@@ -38,56 +39,21 @@ function listing(zdir)
     return sort(unique(m.captures[1] for m in eachmatch(r"href=\"(lte[^\"]*HiRes\.fits)\"", html)))
 end
 
-# Bin-averaging weights: each native sample contributes flux × Δλ to its bin.
-struct Reducer
-    bin::Vector{Int32}        # 0 outside the SED range
-    dλ::Vector{Float64}
-    norm::Vector{Float64}     # Σ Δλ per bin
-    rvs::UnitRange{Int}
-end
-
-function Reducer(wave)
-    n = length(wave)
-    dλ = similar(wave)
-    dλ[1] = wave[2] - wave[1]
-    dλ[n] = wave[n] - wave[n-1]
-    for i in 2:n-1
-        dλ[i] = (wave[i+1] - wave[i-1]) / 2
-    end
-    nbin = round(Int, (SED_HI - SED_LO) / SED_STEP)
-    bin = zeros(Int32, n)
-    norm = zeros(nbin)
-    for i in 1:n
-        (SED_LO <= wave[i] < SED_HI) || continue
-        b = floor(Int, (wave[i] - SED_LO) / SED_STEP) + 1
-        bin[i] = b
-        norm[b] += dλ[i]
-    end
-    all(>(0), norm) || error("an SED bin holds no native sample")
-    return Reducer(bin, dλ, norm, searchsortedfirst(wave, RVS_LO):searchsortedlast(wave, RVS_HI))
-end
-
-function reduce_spectrum(r::Reducer, flux)
-    sed = zeros(length(r.norm))
-    @inbounds for i in eachindex(flux)
-        b = r.bin[i]
-        b == 0 && continue
-        sed[b] += flux[i] * r.dλ[i]
-    end
-    sed ./= r.norm
-    return Float32.(sed), Float32.(flux[r.rvs])
-end
-
 function main(out, ntasks, zdirs)
     stage = joinpath(out, "staging", "aces")
     mkpath(stage)
     wavefile = joinpath(stage, "WAVE_$LIB.fits")
     isfile(wavefile) || fetch("$BASE/WAVE_$LIB.fits", wavefile)
     wave = FITS(f -> Float64.(read(f[1])), wavefile)
-    r = Reducer(wave)
+    r = Reducer(wave, SED_LO, SED_HI, SED_STEP, RVS_LO, RVS_HI)
     h5open(joinpath(stage, "grid.h5"), "w") do f
         f["sed_edges_angstrom"] = collect(SED_LO:SED_STEP:SED_HI)
         f["rvs_wave_angstrom"] = wave[r.rvs]
+        a = attributes(f)
+        a["library"] = "PHOENIX-ACES-AGSS-COND-2011 (HiRes)"
+        a["reference"] = "Husser et al. 2013, A&A 553, A6"
+        a["source"] = BASE
+        a["resolving_power"] = Inf      # not broadened: the sampling is the limit
     end
     for zdir in zdirs
         files = listing(zdir)
