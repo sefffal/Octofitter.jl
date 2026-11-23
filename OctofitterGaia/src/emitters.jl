@@ -40,7 +40,8 @@ A star: one point, with the spectrum of the library `lib` at the body's
 `teff`, `logg` and `mh`, diluted by `(radius / distance)²` and reddened by
 the system's `av`. `rvs` is the [`RVSLibrary`](@ref) its RVS-window spectrum
 comes from, needed only when RVS epoch spectra are modelled; it should be
-built from the same model atmospheres as `lib`.
+built from the same model atmospheres as `lib`. Either can be a
+[`SeamedLibrary`](@ref).
 
 The body must define `teff` [K], `logg` [cgs], `mh` [dex] and `radius` [R☉],
 normally derived from its mass through the evolution model `evol`:
@@ -54,16 +55,16 @@ normally derived from its mass through the evolution model `evol`:
 and the system must define `plx` [mas] and `av`, the monochromatic
 extinction at 550 nm in magnitudes (`av = 0.0` for none).
 """
-struct Star{E,L<:SpectralLibrary,R<:Union{Nothing,RVSLibrary}} <: AbstractEmitter
+struct Star{E,L<:SEDLibrary,R<:Union{Nothing,RVSWindowLibrary}} <: AbstractEmitter
     evol::E
     lib::L
     rvs::R
     extinction::Vector{Float64}     # A(λ)/A₀ on the library's bins
 end
-Star(evol, lib::SpectralLibrary, rvs::Union{Nothing,RVSLibrary}=nothing) =
-    Star(evol, lib, rvs, extinction_curve(lib.edges))
+Star(evol, lib::SEDLibrary, rvs::Union{Nothing,RVSWindowLibrary}=nothing) =
+    Star(evol, lib, rvs, extinction_curve(bin_edges(lib)))
 
-Base.show(io::IO, s::Star) = print(io, "Star(", s.evol, ", ", s.lib.name, ")")
+Base.show(io::IO, s::Star) = print(io, "Star(", s.evol, ", ", libname(s.lib), ")")
 
 nbins(s::Star) = nbins(s.lib)
 
@@ -72,9 +73,9 @@ scene_points(::Star, θ_body, θ_system, epoch) = ((0.0, 0.0, 1.0),)
 sed!(out, s::Star, θ_body, θ_system) =
     observed_sed!(out, s, θ_body.teff, θ_body.logg, θ_body.mh, θ_body.radius, θ_system.plx, θ_system.av)
 
-rvs_grid(s::Star{<:Any,<:Any,<:RVSLibrary}) = LogWaveGrid(s.rvs)
+rvs_grid(s::Star{<:Any,<:Any,<:RVSWindowLibrary}) = LogWaveGrid(s.rvs)
 
-function rvs_spectrum!(out, s::Star{<:Any,<:Any,<:RVSLibrary}, θ_body, θ_system)
+function rvs_spectrum!(out, s::Star{<:Any,<:Any,<:RVSWindowLibrary}, θ_body, θ_system)
     rvs_surface_spectrum!(out, s.rvs, θ_body.teff, θ_body.logg, θ_body.mh)
     dilution = (θ_body.radius * R_SUN_CM * θ_system.plx / (1000 * PARSEC_CM))^2
     out .*= dilution
@@ -146,7 +147,7 @@ function SEDFunctionals(edges::AbstractVector; passbands=gaia_passbands(), degre
         response_vector(passbands.RP, edges), response_vector(passbands.RVS, edges),
         chroma, (ν_lo, ν_hi), passbands)
 end
-SEDFunctionals(lib::SpectralLibrary; kwargs...) = SEDFunctionals(lib.edges; kwargs...)
+SEDFunctionals(lib::SEDLibrary; kwargs...) = SEDFunctionals(bin_edges(lib); kwargs...)
 
 function Base.show(io::IO, f::SEDFunctionals)
     print(io, "SEDFunctionals(", length(f.G), " bins ", f.edges[1], "–", f.edges[end],

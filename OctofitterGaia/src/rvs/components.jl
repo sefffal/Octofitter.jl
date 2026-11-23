@@ -22,6 +22,7 @@ struct LogWaveGrid
     n::Int
 end
 LogWaveGrid(lib::RVSLibrary) = LogWaveGrid(lib.ln_wave0, lib.dln_wave, nwave(lib))
+LogWaveGrid(lib::SeamedLibrary{RVSLibrary}) = LogWaveGrid(lib.cool)
 
 Base.length(g::LogWaveGrid) = g.n
 velocity_step(g::LogWaveGrid) = g.dln_wave * C_KMS

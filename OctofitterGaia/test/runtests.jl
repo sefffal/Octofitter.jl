@@ -16,6 +16,8 @@ using Distributions
 using ForwardDiff
 using Random
 using LinearAlgebra
+import Bumper
+using Bumper: @no_escape, @alloc
 
 const OG = OctofitterGaia
 const FIXTURES = joinpath(@__DIR__, "fixtures")
@@ -443,7 +445,7 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
             n, J = length(tr.bins), OG.nmodes(inst)
             Bt = zeros(n, J)
             OG._rvs_design!(Bt, data, t, (cA, cB), (vA[t], vB[t]), (1.0, 0.9))
-            K, _ = OG._rvs_covariance(tr.bins, view(σ, :, t), wave, inst)
+            K, _ = OG._rvs_covariance(tr.bins, view(σ, :, t), view(data.mismatch, :, t), wave, inst)
             Λ = Diagonal([1 / OG._mode_precision(inst, j) for j in 1:J])
             C = Symmetric(K, :L) + Bt * Λ * Bt'
             r = flux[tr.bins, t] .- Bt[:, 1]
@@ -556,6 +558,89 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         d0 = RVSEpochSpectra(Float64.(fx.flux), Float64.(fx.flux_error), grid; instrument=RVSInstrument(mismatch_amplitude=1e-4, interp_corr=0.0))
         H0 = ForwardDiff.hessian(y -> sum(first(rvs_transit_loglike(d0, t, c, v(t, (y[1], y[2])), w(t, y[3]))) for t in 1:nt), x)
         @test all(sqrt.(diag(inv(-H0))) .< σx)
+    end
+
+    @testset "library mismatch" begin
+        wave = collect(849.0:0.025:855.0)
+        same = library_mismatch(rvs, rvs, 5777.0, 4.44, 0.0; wavelength=wave)
+        @test maximum(abs, same.residual) < 1e-5
+        @test abs(same.velocity) < 1e-3
+        @test all(==(0.003), same.amplitude)
+        # a second library that differs by a feature 5 % deep at 852 nm
+        λ = OG.wavelengths(rvs)
+        other = RVSLibrary(rvs.name, rvs.teff, rvs.logg, rvs.mh, rvs.ln_wave0, rvs.dln_wave,
+            rvs.mean .+ log10.(1 .- 0.05 .* exp.(-0.5 .* ((λ .- 852.0) ./ 0.05) .^ 2)),
+            rvs.basis, rvs.weights, rvs.present, rvs.rms_wave, rvs.resolving_power, rvs.path)
+        diff = library_mismatch(rvs, other, 5777.0, 4.44, 0.0; wavelength=wave)
+        i = argmax(abs.(diff.residual))
+        @test abs(wave[i] - 852.0) < 0.03
+        @test 0.03 < abs(diff.residual[i]) < 0.055
+        @test argmax(diff.amplitude) in i-3:i+3
+        @test diff.amplitude[1] < 0.01 < diff.amplitude[i]
+        @test abs(diff.velocity) < 0.5
+        @test_throws ArgumentError library_mismatch(rvs, other, 9000.0, 4.44, 0.0; wavelength=wave)
+        # the profile as the mismatch of a data set: one number per bin, used in every transit
+        grid = LogWaveGrid(rvs)
+        σ = fill(0.01, length(wave), 2)
+        d1 = RVSEpochSpectra(ones(length(wave), 2), σ, grid; wavelength=wave, mismatch=diff.amplitude)
+        d2 = RVSEpochSpectra(ones(length(wave), 2), σ, grid; wavelength=wave, mismatch=repeat(diff.amplitude, 1, 2))
+        @test d1.mismatch == d2.mismatch
+        @test d1.transits[2].chol.logdet == d2.transits[2].chol.logdet
+        flat = RVSEpochSpectra(ones(length(wave), 2), σ, grid; wavelength=wave, mismatch=0.003)
+        @test d1.transits[1].chol.logdet > flat.transits[1].chol.logdet
+        @test_throws DimensionMismatch RVSEpochSpectra(ones(length(wave), 2), σ, grid; wavelength=wave, mismatch=[0.01, 0.02])
+    end
+
+    @testset "seamed libraries" begin
+        # the same library, 0.02 dex brighter, joined to itself over 5000–5600 K
+        hot = SpectralLibrary(lib.name * " (hot)", lib.teff, lib.logg, lib.mh, lib.edges, lib.log_flux .+ 0.02f0, lib.present, lib.path)
+        seam = SeamedLibrary(lib, hot; teff=(5000, 5600))
+        n = OG.nbins(lib)
+        @test OG.nbins(seam) == n
+        f(l, T) = surface_sed!(zeros(typeof(T), n), l, T, 4.5, 0.0)
+        @test f(seam, 4900.0) == f(lib, 4900.0)
+        @test f(seam, 5000.0) == f(lib, 5000.0)
+        @test f(seam, 5600.0) == f(hot, 5600.0)
+        @test f(seam, 6000.0) == f(hot, 6000.0)
+        @test f(seam, 5300.0) ≈ f(lib, 5300.0) .* exp10(0.01) rtol = 1e-5      # half way: the geometric mean
+        @test all(f(lib, 5150.0) .< f(seam, 5150.0) .< f(hot, 5150.0))
+        for T in (5000.0, 5600.0)                                              # value and slope are continuous at both ends
+            @test f(seam, T - 1e-6) ≈ f(seam, T + 1e-6) rtol = 1e-7
+            g(x) = log(sum(f(seam, x)))
+            @test ForwardDiff.derivative(g, T - 1e-6) ≈ ForwardDiff.derivative(g, T + 1e-6) rtol = 1e-4
+        end
+        @test all(isnan, f(seam, 5300.0 + 0 * NaN))
+        @test_throws ArgumentError SeamedLibrary(lib, hot; teff=(6000, 7000))   # beyond the cool library
+        @test_throws ArgumentError SeamedLibrary(lib, hot; teff=(5600, 5000))
+        # a star and its photometry take either kind
+        star, plain = Star(evol, seam), Star(evol, lib)
+        @test SEDFunctionals(seam).G == SEDFunctionals(lib).G
+        rate, rate0 = BandRate(star, :G), BandRate(plain, :G)
+        @test rate(4800.0, 4.5, 0.0, 0.8, 50.0, 0.0) == rate0(4800.0, 4.5, 0.0, 0.8, 50.0, 0.0)
+        @test rate(5900.0, 4.5, 0.0, 0.8, 50.0, 0.0) ≈ rate0(5900.0, 4.5, 0.0, 0.8, 50.0, 0.0) * exp10(0.02) rtol = 1e-5
+        # the RVS window
+        hotrvs = RVSLibrary(rvs.name * " (hot)", rvs.teff, rvs.logg, rvs.mh, rvs.ln_wave0, rvs.dln_wave, rvs.mean .+ 0.02,
+            rvs.basis, rvs.weights, rvs.present, rvs.rms_wave, rvs.resolving_power, rvs.path)
+        rseam = SeamedLibrary(rvs, hotrvs; teff=(5000, 5600))
+        @test LogWaveGrid(rseam) == LogWaveGrid(rvs)
+        r(l, T) = rvs_surface_spectrum!(zeros(length(LogWaveGrid(rvs))), l, T, 4.5, 0.0)
+        @test r(rseam, 4800.0) == r(rvs, 4800.0)
+        # into an array that lives in a Bumper arena, as the likelihood's scratch does
+        @no_escape Bumper.default_buffer() begin
+            tmp = @alloc(Float64, length(LogWaveGrid(rvs)))
+            rvs_surface_spectrum!(tmp, rseam, 5300.0, 4.5, 0.0)
+            @test tmp ≈ r(rvs, 5300.0) .* exp10(0.01)
+            surf = @alloc(Float64, n)
+            surface_sed!(surf, seam, 5300.0, 4.5, 0.0)
+            @test surf == f(seam, 5300.0)
+            nothing
+        end
+        @test r(rseam, 5300.0) ≈ r(rvs, 5300.0) .* exp10(0.01)
+        @test r(rseam, 5800.0) == r(hotrvs, 5800.0)
+        both = Star(evol, seam, rseam)
+        @test rvs_grid(both) == LogWaveGrid(rvs)
+        @test_throws ArgumentError SeamedLibrary(rvs, RVSLibrary(rvs.name, rvs.teff, rvs.logg, rvs.mh, rvs.ln_wave0 + 1e-6, rvs.dln_wave,
+            rvs.mean, rvs.basis, rvs.weights, rvs.present, rvs.rms_wave, rvs.resolving_power, rvs.path))
     end
 
     @testset "in an Octofitter model" begin

@@ -27,45 +27,6 @@
 using HDF5, LinearAlgebra, Statistics
 include(joinpath(@__DIR__, "common.jl"))
 
-const C_KMS = 299792.458
-
-# Convolve a spectrum sampled at `wave` with a Gaussian of resolving power R
-# (FWHM = λ/R) and return it on the grid ln λ = lnw0 + i·dlnw. The work is
-# done on a grid `over` times finer, so the output samples are averages over
-# their own width.
-function lsf_resample(wave, flux, lnw0, dlnw, n; R, R_native=Inf, over=4)
-    h = dlnw / over
-    R_native > R || error("the library's resolving power $R_native is not above the requested $R")
-    σ = sqrt(1 / R^2 - 1 / R_native^2) / (2sqrt(2log(2)))      # in ln λ
-    half = ceil(Int, 5σ / h)
-    kernel = [exp(-0.5 * (k * h / σ)^2) for k in -half:half]
-    kernel ./= sum(kernel)
-    nfine = n * over + 2half
-    x0 = lnw0 - dlnw / 2 + h / 2 - half * h             # first fine sample
-    fine = Vector{Float64}(undef, nfine)
-    lnwave = log.(wave)
-    j = 1
-    for i in 1:nfine
-        x = x0 + (i - 1) * h
-        while j < length(lnwave) - 1 && lnwave[j+1] < x
-            j += 1
-        end
-        (lnwave[j] <= x <= lnwave[j+1]) || error("the cut-out does not cover the requested range plus the LSF wings")
-        t = (x - lnwave[j]) / (lnwave[j+1] - lnwave[j])
-        fine[i] = (1 - t) * flux[j] + t * flux[j+1]
-    end
-    out = zeros(n)
-    for i in 1:n, o in 1:over
-        c = (i - 1) * over + o + half                   # centre in `fine`
-        acc = 0.0
-        @inbounds for k in -half:half
-            acc += kernel[k+half+1] * fine[c+k]
-        end
-        out[i] += acc / over
-    end
-    return out
-end
-
 function main(stage, out, ncomp, R, step, lo, hi)
     wave = h5read(joinpath(stage, "grid.h5"), "rvs_wave_angstrom") ./ 10     # nm
     meta = h5open(f -> Dict(k => read(attributes(f)[k]) for k in keys(attributes(f))), joinpath(stage, "grid.h5"))

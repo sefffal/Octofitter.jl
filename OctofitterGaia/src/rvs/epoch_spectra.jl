@@ -50,9 +50,13 @@ population.
     Each bin is a linear interpolation between two detector pixels; averaged
     over sub-pixel phase that correlates neighbours at 0.25 and nothing
     beyond.
-  - `mismatch_amplitude = 0.01`, `mismatch_length = 60` [km/s]: amplitude
+  - `mismatch_amplitude = 0.025`, `mismatch_length = 110` [km/s]: amplitude
     (in normalised flux) and support of the template-mismatch kernel, a
-    Wendland function `(1 - r)⁴ (4r + 1)`.
+    Wendland function `(1 - r)⁴ (4r + 1)`, which falls to one half at 0.31
+    of its support. The defaults are what two libraries differ by on the
+    same star (PHOENIX-ACES against BOSZ 2024: 1–3 % rms for dwarfs of
+    3500–12 000 K, correlated over a resolution element). The amplitude
+    can be given per bin instead, see [`RVSEpochSpectra`](@ref).
   - `bad_sigma = 1.0`: standard deviation per bin of the bad state, about a
     flat spectrum at one.
   - `limb_darkening = 0.6`: linear coefficient of the rotational profile.
@@ -67,8 +71,8 @@ Base.@kwdef struct RVSInstrument{P}
     zeropoint_sigma::Float64 = 0.5
     lsf_width_sigma::Float64 = 0.1
     interp_corr::Float64 = 0.25
-    mismatch_amplitude::Float64 = 0.01
-    mismatch_length::Float64 = 60.0
+    mismatch_amplitude::Float64 = 0.025
+    mismatch_length::Float64 = 110.0
     bad_sigma::Float64 = 1.0
     limb_darkening::Float64 = 0.6
 end
@@ -109,13 +113,20 @@ end
 
 """
     RVSEpochSpectra(flux, flux_error, grid; instrument = RVSInstrument(),
-                    wavelength = DR4_RVS_WAVELENGTH, p_bad = 1e-3)
+                    wavelength = DR4_RVS_WAVELENGTH, p_bad = 1e-3,
+                    mismatch = instrument.mismatch_amplitude)
 
 The epoch spectra of one source, ready for the likelihood: `flux[bin, transit]`
 and `flux_error[bin, transit]` as published, with `NaN` in bins that carry
 no data. `grid` is the fine grid the emitters' spectra are on (see
 [`LogWaveGrid`](@ref)). `p_bad` is the prior probability that a transit is
 bad, one number or one per transit.
+
+`mismatch` is the amplitude of the template-mismatch term in normalised
+flux: one number, one per bin, or `[bin, transit]`. Template errors sit in
+the lines, so a profile (see [`library_mismatch`](@ref)) keeps the continuum
+at full weight where one number cannot. It must not depend on the spectra
+being fitted.
 
 Spectra must be normalised to a level near one. The pipeline does that
 except for double-lined transits (`normalisation_method = 0`); divide those
@@ -128,6 +139,7 @@ struct RVSEpochSpectra{I<:RVSInstrument}
     grid::LogWaveGrid
     instrument::I
     p_bad::Vector{Float64}
+    mismatch::Matrix{Float64}        # [bin, transit]
     position::Vector{Float64}        # of each bin on the fine grid, in samples from 1, at zero velocity
     cheb::Matrix{Float64}            # [bin, degree + 1]
     transits::Vector{_RVSTransit}
@@ -145,7 +157,7 @@ _wendland(r) = r < 1 ? (1 - r)^4 * (4r + 1) : zero(r)
 
 # Covariance of the valid bins of one spectrum, as a dense lower band:
 # `band[k + 1, i]` is the covariance of valid bins i and i - k.
-function _rvs_covariance(bins, σ, wavelength, inst::RVSInstrument; extra_variance=0.0)
+function _rvs_covariance(bins, σ, amplitude, wavelength, inst::RVSInstrument; extra_variance=0.0)
     n = length(bins)
     v = C_KMS .* log.(wavelength[bins])
     b = 1
@@ -155,7 +167,7 @@ function _rvs_covariance(bins, σ, wavelength, inst::RVSInstrument; extra_varian
     end
     A = zeros(n, n)
     for i in 1:n, j in max(1, i - b):i
-        c = inst.mismatch_amplitude^2 * _wendland((v[i] - v[j]) / inst.mismatch_length)
+        c = amplitude[bins[i]] * amplitude[bins[j]] * _wendland((v[i] - v[j]) / inst.mismatch_length)
         if i == j
             c += σ[bins[i]]^2 + extra_variance
         elseif bins[i] - bins[j] == 1
@@ -167,7 +179,8 @@ function _rvs_covariance(bins, σ, wavelength, inst::RVSInstrument; extra_varian
 end
 
 function RVSEpochSpectra(flux::AbstractMatrix, flux_error::AbstractMatrix, grid::LogWaveGrid;
-    instrument::RVSInstrument=RVSInstrument(), wavelength=DR4_RVS_WAVELENGTH, p_bad=1e-3)
+    instrument::RVSInstrument=RVSInstrument(), wavelength=DR4_RVS_WAVELENGTH, p_bad=1e-3,
+    mismatch=instrument.mismatch_amplitude)
     size(flux) == size(flux_error) || throw(DimensionMismatch("flux and flux_error differ in size"))
     size(flux, 1) == length(wavelength) || throw(DimensionMismatch("flux has $(size(flux, 1)) bins, wavelength $(length(wavelength))"))
     0 <= instrument.interp_corr < 0.5 || throw(ArgumentError("interp_corr must be in [0, 0.5)"))
@@ -175,6 +188,10 @@ function RVSEpochSpectra(flux::AbstractMatrix, flux_error::AbstractMatrix, grid:
     p_bad = p_bad isa Number ? fill(Float64(p_bad), nt) : collect(Float64, p_bad)
     length(p_bad) == nt || throw(DimensionMismatch("p_bad needs one entry per transit"))
     all(p -> 0 <= p < 1, p_bad) || throw(ArgumentError("p_bad must be in [0, 1)"))
+    mismatch = mismatch isa Number ? fill(Float64(mismatch), size(flux)) :
+               mismatch isa AbstractVector ? repeat(collect(Float64, mismatch), 1, nt) : Matrix{Float64}(mismatch)
+    size(mismatch) == size(flux) || throw(DimensionMismatch("mismatch must be a number, one value per bin, or the size of flux"))
+    all(>=(0), mismatch) || throw(ArgumentError("mismatch amplitudes must not be negative"))
     wavelength = collect(Float64, wavelength)
     position = (log.(wavelength) .- grid.ln_wave0) ./ grid.dln_wave .+ 1
     x = (2 .* wavelength .- (wavelength[1] + wavelength[end])) ./ (wavelength[end] - wavelength[1])
@@ -188,23 +205,24 @@ function RVSEpochSpectra(flux::AbstractMatrix, flux_error::AbstractMatrix, grid:
         y, σ = view(flux, :, t), view(flux_error, :, t)
         bins = findall(i -> isfinite(y[i]) && isfinite(σ[i]) && σ[i] > 0, eachindex(y))
         length(bins) > nmodes(instrument) || throw(ArgumentError("transit $t has $(length(bins)) valid bins; drop it"))
-        A, b = _rvs_covariance(bins, σ, wavelength, instrument)
+        amp = view(mismatch, :, t)
+        A, b = _rvs_covariance(bins, σ, amp, wavelength, instrument)
         chol = BandedCholesky(A, b)
         white = whiten!(y[bins], chol)
-        Abad, _ = _rvs_covariance(bins, σ, wavelength, instrument; extra_variance=instrument.bad_sigma^2)
+        Abad, _ = _rvs_covariance(bins, σ, amp, wavelength, instrument; extra_variance=instrument.bad_sigma^2)
         cbad = BandedCholesky(Abad, b)
         wbad = whiten!(y[bins] .- 1, cbad)
         ll_bad = -(sum(abs2, wbad) + cbad.logdet + length(bins) * log(2π)) / 2
         _RVSTransit(bins, chol, white, sum(abs2, white), ll_bad)
     end
     return RVSEpochSpectra(Matrix{Float64}(flux), Matrix{Float64}(flux_error), wavelength, grid,
-        instrument, p_bad, position, cheb, transits)
+        instrument, p_bad, mismatch, position, cheb, transits)
 end
 
 "A copy holding only the transits `inds`."
 Base.getindex(d::RVSEpochSpectra, inds::AbstractVector{<:Integer}) =
     RVSEpochSpectra(d.flux[:, inds], d.flux_error[:, inds], d.wavelength, d.grid, d.instrument,
-        d.p_bad[inds], d.position, d.cheb, d.transits[inds])
+        d.p_bad[inds], d.mismatch[:, inds], d.position, d.cheb, d.transits[inds])
 
 # ---------------------------------------------------
 # The mean model
@@ -380,4 +398,64 @@ function rvs_transit_simulate(rng, d::RVSEpochSpectra, t::Integer, components::T
     out = fill(NaN, length(d.wavelength))
     out[tr.bins] .= y
     return out
+end
+
+# ---------------------------------------------------
+# Sizing the mismatch term from two libraries
+# ---------------------------------------------------
+
+"""
+    library_mismatch(lib, other, teff, logg, mh; instrument = RVSInstrument(),
+                     wavelength = DR4_RVS_WAVELENGTH, velocity = 0.0, smooth = 60.0, floor = 0.003)
+        -> (; amplitude, velocity, residual)
+
+What two spectral libraries disagree on for a star of the given parameters,
+as the likelihood would see it: `other`'s spectrum is treated as data and
+`lib`'s is fitted to it with the continuum, the line-spread-function width
+and a velocity free. `residual` is what is left, per bin, in normalised
+flux; `velocity` [km/s] is the fitted shift, the difference between the two
+libraries' velocity zero points; `amplitude` is the rms of the residual in
+a running window of half width `smooth` [km/s], not less than `floor`, for
+use as the `mismatch` of [`RVSEpochSpectra`](@ref).
+
+The profile is in the frame of a star at `velocity` [km/s]; pass the
+catalogue velocity of the source and a `smooth` that covers its excursions.
+"""
+function library_mismatch(lib::RVSLibrary, other::RVSLibrary, teff, logg, mh; instrument::RVSInstrument=RVSInstrument(),
+    wavelength=DR4_RVS_WAVELENGTH, velocity=0.0, smooth=60.0, floor=0.003)
+    grid = LogWaveGrid(lib)
+    grid == LogWaveGrid(other) || throw(ArgumentError("the two libraries are on different wavelength grids"))
+    component(l) = begin
+        raw = rvs_surface_spectrum!(zeros(length(grid)), l, teff, logg, mh)
+        any(isnan, raw) && throw(ArgumentError("($teff, $logg, $mh) is outside $(l.name)"))
+        rvs_component!(similar(raw), similar(raw), similar(raw), raw, 0.0, grid)
+    end
+    n = length(wavelength)
+    blank = RVSEpochSpectra(ones(n, 1), fill(1.0, n, 1), grid; instrument, wavelength, mismatch=0.0)
+    y = rvs_transit_model(blank, 1, (component(other),), (velocity,), (1.0,))
+    c = component(lib)
+    J = nmodes(instrument)
+    cols = [1:J-2; J]                         # continuum and width; the velocity is fitted, not linearised
+    B = zeros(n, J)
+    function residual(v)
+        _rvs_design!(B, blank, 1, (c,), (velocity + v,), (1.0,)) || return fill(Inf, n)
+        X = B[:, cols]
+        return y .- X * (X \ y)
+    end
+    vs = -8.0:0.25:8.0
+    χ = [sum(abs2, residual(v)) for v in vs]
+    k = clamp(argmin(χ), 2, length(vs) - 1)
+    v = vs[k] + step(vs) / 2 * (χ[k-1] - χ[k+1]) / (χ[k-1] - 2χ[k] + χ[k+1])
+    r = residual(v)
+    lnw = log.(wavelength)
+    amplitude = map(1:n) do i
+        acc, m = 0.0, 0
+        for j in 1:n
+            abs(lnw[j] - lnw[i]) * C_KMS <= smooth || continue
+            acc += r[j]^2
+            m += 1
+        end
+        max(sqrt(acc / m), floor)
+    end
+    return (; amplitude, velocity=v, residual=r)
 end

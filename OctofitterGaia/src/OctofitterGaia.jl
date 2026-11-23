@@ -23,17 +23,18 @@ include("passbands.jl")
 include("evolution/mist.jl")
 include("spectra/library.jl")
 include("spectra/rvs.jl")
+include("spectra/seam.jl")
 include("banded.jl")
 include("rvs/components.jl")
 include("rvs/epoch_spectra.jl")
 include("emitters.jl")
 
-export MISTGrid, SpectralLibrary, RVSLibrary, Star, SEDFunctionals, BandRate
+export MISTGrid, SpectralLibrary, RVSLibrary, SeamedLibrary, Star, SEDFunctionals, BandRate
 export gaia_passbands, photon_rate, chromatic_moments!, surface_sed!, sed!, scene_points
 export rvs_weights!, rvs_surface_spectrum!
 export LogWaveGrid, RVSInstrument, RVSEpochSpectra, RVSComponent, GaussianProfile
 export rvs_component!, rotational_broaden!, rvs_velocity, window_fraction, gravitational_redshift
-export rvs_transit_loglike, rvs_transit_model, rvs_transit_simulate, rvs_grid, rvs_spectrum!
+export rvs_transit_loglike, rvs_transit_model, rvs_transit_simulate, rvs_grid, rvs_spectrum!, library_mismatch
 
 function __init__()
     register(DataDep("MIST_v1.2_vvcrit0.4",

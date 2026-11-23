@@ -125,6 +125,7 @@ function rvs_surface_spectrum!(out::AbstractVector, lib::RVSLibrary, teff, logg,
         w = @alloc(eltype(out), ncomponents(lib))
         rvs_weights!(w, lib, teff, logg, mh)
         rvs_surface_spectrum!(out, lib, w)
+        nothing             # `out` may itself live in the arena, and must not be the block's value
     end
     return out
 end
