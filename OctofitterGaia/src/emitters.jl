@@ -12,8 +12,9 @@
 
 A source of light in the scene. The interface is
 
-    scene_points(e, θ_body, θ_system, epoch)   # iterable of (Δα*, Δδ, weight)
+    scene_points(e, θ_body, θ_system, epoch)   # iterable of (Δα*, Δδ, weight), with a length
     sed!(out, e, θ_body, θ_system)             # observed spectrum on the SED bins
+    sed_bin_edges(e), nbins(e)                 # those bins [nm] and their number
 
 `scene_points` gives offsets [mas] from the body's position and weights that
 sum to 1. `sed!` fills `out` with the flux density at the telescope
@@ -67,6 +68,9 @@ Star(evol, lib::SEDLibrary, rvs::Union{Nothing,RVSWindowLibrary}=nothing) =
 Base.show(io::IO, s::Star) = print(io, "Star(", s.evol, ", ", libname(s.lib), ")")
 
 nbins(s::Star) = nbins(s.lib)
+
+"Edges [nm] of the bins an emitter's `sed!` fills; `nbins(emitter)` is their number less one."
+sed_bin_edges(s::Star) = bin_edges(s.lib)
 
 scene_points(::Star, θ_body, θ_system, epoch) = ((0.0, 0.0, 1.0),)
 

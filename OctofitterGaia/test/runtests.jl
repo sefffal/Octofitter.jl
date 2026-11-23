@@ -7,8 +7,10 @@
 # reproduced at their nodes, that everything in between is continuous and
 # differentiable, that photon rates are on Gaia's scale, that the likelihood
 # of the RVS epoch spectra is the Gaussian it claims to be and recovers what
-# GaiaTwin put in, that the image model's mean is GaiaTwin's, and that the
-# pieces compose into an Octofitter model.
+# GaiaTwin put in, that the image model's mean is GaiaTwin's and its
+# likelihood the Gaussian it claims to be, finding a companion in windows
+# GaiaTwin recorded through optics that are not the calibrated ones, and that
+# the pieces compose into an Octofitter model.
 
 using Test
 using OctofitterGaia
@@ -769,7 +771,140 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         @test_throws DimensionMismatch window_mean!(zeros(18, 11), basis, ref.w, ref.z, 0.0, srcs)
     end
 
-    # The RVS block on the model's absolute frame: positions as `GaiaDR4AstromObs`
+    @testset "epoch images" begin
+        path = joinpath(FIXTURES, "gaiatwin_image_fixture.h5")
+        basis = ImageBasis(path, "fov1_ccd5")
+        @test OG.nshapes(basis) == 3 && size(basis.modes, 2) == 2
+        ref = OG.h5open(g -> (; (Symbol(k) => read(g["reference"][k]) for k in keys(g["reference"]))...), path)
+        tr = OG.h5open(g -> (; (Symbol(k) => read(g["transits"][k]) for k in keys(g["transits"]))...), path)
+        ν_lo, ν_hi = basis.wavenumber_range
+        x = 2 .* (1 ./ ref.lam .- ν_lo) ./ (ν_hi - ν_lo) .- 1
+        moments = [sum(ref.weights[:, k] .* OG._legendre.(n, x)) for n in 1:6, k in 1:2]
+
+        # one source at one sample: the fraction, its derivatives and the shape modes
+        pt = image_point!(zeros(6), basis, moments[:, 1], 37.0, -112.0)
+        @test pt[1] ≈ image_fraction(basis, moments[:, 1], 37.0, -112.0)
+        grad = ForwardDiff.gradient(v -> image_fraction(basis, moments[:, 1], v[1], v[2]), [37.0, -112.0])
+        @test pt[2:3] ≈ grad
+        @test all(!iszero, pt[4:6]) && all(abs.(pt[4:6]) .< 0.1 * pt[1])
+        @test image_point!(zeros(3), basis, moments[:, 1], 37.0, -112.0) == pt[1:3]          # fewer modes than the device has
+        @test all(iszero, image_point!(ones(6), basis, moments[:, 1], 900.0, 0.0))
+        @test_throws DimensionMismatch image_point!(zeros(7), basis, moments[:, 1], 0.0, 0.0)
+        # a shape mode moves light about and neither adds nor removes much of it
+        @test abs(sum(basis.modes[1, 1, :, :])) < 0.02 * sum(abs, basis.modes[1, 1, :, :])
+
+        inst = ImageInstrument(path)
+        @test inst.nshapes == 3 && OG.chromatic_degree(inst) == 6 && haskey(inst.bases, "fov1_ccd5")
+        @test_throws ArgumentError ImageInstrument(path; nshapes=4)
+        @test ImageInstrument(inst; transit_shape_sigma=0.0).transit_shape_sigma == 0 && ImageInstrument(inst; nshapes=1).nshapes == 1
+        nt, nccd = size(tr.samples, 4), size(tr.samples, 3)
+        function table(ts=1:nt, ccds=1:nccd; samples=(k, t) -> Float64.(tr.samples[:, :, k, t]))
+            Table([(; epoch=57000.0 + 30t, transit=t, scan_pos_angle=0.0, parallax_factor_al=0.0, parallax_factor_ac=0.0,
+                device="fov1_ccd5", exposure=tr.exposure, samples=samples(k, t), sample_pos_al=tr.w0[k, t], sample_pos_ac=tr.z0[k, t],
+                sample_size_al=tr.sample_size[1], sample_size_ac=tr.sample_size[2], background=tr.background, background_error=0.5)
+                   for t in ts for k in ccds])
+        end
+        data = EpochImages(table(), inst)
+        @test OG.ntransits(data) == nt && OG.nwindows(data) == nt * nccd && OG.nwindows(data, 2) == nccd
+        @test data.window_modes == [1, 2, 3, 4] && data.transit_modes == [2, 3, 4, 5, 6, 7]
+        scene(t, nq=nccd; shift=(0.0, 0.0), k=1:2) = (repeat(tr.position[1, k, t] .+ shift[1] .* (k .== 2), 1, nq),
+            repeat(tr.position[2, k, t] .+ shift[2] .* (k .== 2), 1, nq), tr.rate[k], moments[:, k])
+
+        # the mean: GaiaTwin's own windows, to within its noise and the displaced optics
+        μ = image_transit_model(data, 1, scene(1)...)
+        @test length(μ) == nccd && size(μ[1]) == (18, 12)
+        @test sum(μ[1]) ≈ sum(tr.samples[:, :, 1, 1]) rtol = 0.01
+        @test image_transit_simulate(Random.Xoshiro(1), data, 1, scene(1)...; add_noise=false) == μ
+
+        # the likelihood is the Gaussian it claims to be: against the dense covariance of two windows
+        small = EpochImages(table(2:2, 1:2), inst)
+        w, z, rate, mom = scene(2, 2)
+        function dense(d, w, z, rate, mom; extra=(m -> 0.0), shape=(), flux_scale=1.0)
+            i = d.instrument
+            parts = [OG._window_design(d, q, w[:, q], z[:, q], rate, mom, shape, flux_scale) for q in 1:OG.nwindows(d)]
+            n = sum(p -> length(p[2]), parts)
+            Σ, mean, off = zeros(n, n), zeros(n), 0
+            Tm = zeros(n, length(d.transit_modes))
+            for (q, (U, m, v)) in enumerate(parts)
+                r = off+1:off+length(m)
+                mean[r] .= m
+                src = m .- d.windows[q].background
+                Σ[r, r] .= Diagonal(v .+ extra.(src)) .+ U[:, d.window_modes] * Diagonal([OG._window_sigma(i, d.windows[q], a)^2 for a in d.window_modes]) * U[:, d.window_modes]'
+                Tm[r, :] .= U[:, d.transit_modes]
+                off += length(m)
+            end
+            Σ .+= Tm * Diagonal([OG._transit_sigma(i, a)^2 for a in d.transit_modes]) * Tm'
+            keep = findall(!isnan, d.samples)
+            return MvNormal(mean[keep], Symmetric(Σ[keep, keep])), keep
+        end
+        N, keep = dense(small, w, z, rate, mom)
+        ll, ll_good = image_transit_loglike(small, 1, w, z, rate, mom)
+        @test ll_good ≈ logpdf(N, small.samples[keep]) rtol = 1e-9
+        Nbad, _ = dense(small, w, z, rate, mom; extra=m -> inst.bad_sigma^2 + (inst.bad_fraction * m)^2)
+        @test ll ≈ log((1 - 1e-3) * exp(ll_good - ll_good) + 1e-3 * exp(logpdf(Nbad, small.samples[keep]) - ll_good)) + ll_good rtol = 1e-9
+        # … with star-level shape coefficients, a flux scale and masked samples
+        masked = EpochImages(table(2:2, 1:2; samples=(k, t) -> (s = Float64.(tr.samples[:, :, k, t]); s[3:5, 2k] .= NaN; s)), inst; p_bad=0.0)
+        N, keep = dense(masked, w, z, rate, mom; shape=(0.4, -0.2), flux_scale=1.01)
+        @test length(keep) == 2 * 216 - 6
+        ll, ll_good = image_transit_loglike(masked, 1, w, z, rate, mom; shape=(0.4, -0.2), flux_scale=1.01)
+        @test ll == ll_good
+        @test ll_good ≈ logpdf(N, masked.samples[keep]) rtol = 1e-9
+        # a sampled jitter replaces the instrument's width of the per-transit shift
+        wide = EpochImages(table(2:2, 1:2), ImageInstrument(inst; transit_shift_sigma=(0.7, 9.0)))
+        @test image_transit_loglike(small, 1, w, z, rate, mom; jitter=(0.7, 9.0))[2] ≈ image_transit_loglike(wide, 1, w, z, rate, mom)[2]
+
+        # draws from the model have the model's covariance: the quadratic form averages to the number of samples
+        N, keep = dense(small, w, z, rate, mom)
+        rng = Random.Xoshiro(4)
+        quad = map(1:200) do _
+            y = reduce(vcat, vec.(image_transit_simulate(rng, small, 1, w, z, rate, mom)))
+            sum(abs2, cholesky(N.Σ).L \ (y .- N.μ))
+        end
+        @test abs(sum(quad) / length(quad) - length(keep)) < 4 * sqrt(2 * length(keep) / length(quad))
+
+        # GaiaTwin's windows, recorded through optics that are not the calibrated ones: the shape modes are what
+        # makes them probable, and the companion is where GaiaTwin put it
+        total(d; kw...) = sum(first(image_transit_loglike(d, t, scene(t; kw...)...)) for t in 1:nt)
+        rigid = EpochImages(table(), ImageInstrument(inst; transit_shape_sigma=0.0))
+        ℓ = total(data)
+        @test ℓ > total(rigid) + 1000
+        # per sample, the good state is about as probable as noise alone allows
+        dof = count(!isnan, data.samples)
+        @test isfinite(ℓ)
+        shifts = -6.0:1.0:6.0
+        prof_al = [total(data; shift=(s, 0.0)) for s in shifts]
+        prof_ac = [total(data; shift=(0.0, 4s)) for s in shifts]
+        peak(p, x) = (k = clamp(argmax(p), 2, length(p) - 1); x[k] + step(x) / 2 * (p[k-1] - p[k+1]) / (p[k-1] - 2p[k] + p[k+1]))
+        println("  companion offset from truth [mas]: along ", round(peak(prof_al, shifts); digits=2), ", across ", round(peak(prof_ac, 4 .* shifts); digits=2),
+            "; Δlnℒ(shape modes) = ", round(ℓ - total(rigid); digits=0), "; lnℒ per sample ", round(ℓ / dof; digits=3))
+        @test abs(peak(prof_al, shifts)) < 2.0
+        @test abs(peak(prof_ac, 4 .* shifts)) < 8.0
+        # without the companion the windows are far less probable
+        single = sum(first(image_transit_loglike(data, t, scene(t; k=1:1)...)) for t in 1:nt)
+        @test ℓ > single + 5000
+
+        # dual numbers in every argument, and no allocation in the plain evaluation
+        function f(p)
+            w2, z2 = w .+ p[1] .* [0, 1], z .+ p[2] .* [0, 1]
+            first(image_transit_loglike(small, 1, w2, z2, rate .* [1, p[3]], mom .+ p[4] .* [1, 0, 0, 0, 0, 0]; shape=(p[5],), flux_scale=p[6], jitter=(p[7], 5.0)))
+        end
+        p0 = [0.0, 0.0, 1.0, 0.0, 0.1, 1.0, 0.1]
+        g = ForwardDiff.gradient(f, p0)
+        gfd = [central(v -> [f(v)], p0, i; h=1e-5)[1] for i in eachindex(p0)]
+        @test all(isfinite, g) && isapprox(g, gfd; rtol=1e-4, atol=1e-4 * maximum(abs, g))
+        buf = Bumper.default_buffer()
+        image_transit_loglike(small, 1, w, z, rate, mom; buf)
+        @test (@allocated image_transit_loglike(small, 1, w, z, rate, mom; buf)) == 0
+
+        # what the data container refuses
+        @test_throws ArgumentError EpochImages(table()[[1, 10, 2]], inst)                       # a transit's rows are not adjacent
+        @test_throws ArgumentError EpochImages(Table(table(); device=fill("fov9_ccd1", nt * nccd)), inst)
+        @test_throws DimensionMismatch EpochImages(table(), inst; p_bad=[0.1, 0.2])
+        @test_throws DimensionMismatch image_transit_loglike(small, 1, w[:, 1:1], z[:, 1:1], rate, mom)
+        @test_throws DimensionMismatch image_transit_loglike(small, 1, w, z, rate, mom; shape=(0.0, 0.0, 0.0, 0.0))
+    end
+
+    # The blocks on the model's absolute frame: positions as `GaiaDR4AstromObs`
     # places them, velocities from the frame's own radial velocity.
     @testset "GaiaDR4RawObs" begin
         RA0, DEC0, REF = 209.506326888, 31.695499700, 57936.875
@@ -838,21 +973,26 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
             unique_ep, maps = Octofitter.epoch_plan(sys)
             posys = Octofitter._build_po_system(sys, θ)
             traj = Octofitter.orbitsolve(posys, unique_ep; Octofitter._solvekw(sys)...)
-            return map(o -> Octofitter._obsctx(sys, θ, (;), posys, traj, maps[o]), sys.observations)
+            obsns = hasproperty(θ, :observations) ? θ.observations : (;)
+            return map(sys.observations) do o
+                key = Octofitter.normalizename(Octofitter.likelihoodname(o))
+                Octofitter._obsctx(sys, θ, hasproperty(obsns, key) ? getproperty(obsns, key) : (;), posys, traj, maps[o])
+            end
         end
         ctx, ctx_astrom = contexts(sys, θ)
-        sim = Octofitter.simulate(obs, ctx)
+        sim = Octofitter.simulate(obs, ctx).rvs
+        @test Octofitter.simulate(obs, ctx).images === nothing
         @test size(sim.flux) == (length(wave), nt) && size(sim.velocity) == (2, nt)
 
         # positions: the same local plane as the DR4 astrometry of the same body
         refA, refb, bary = Octofitter.ref(ctx, Octofitter.refspec(:A)), Octofitter.ref(ctx, Octofitter.refspec(:b)), Octofitter.ref(ctx, Barycentre)
         al = Octofitter.simulate(astrom, ctx_astrom).along_scan
-        pos(body, t) = transit_position(Octofitter.solutionat(ctx, t), body, bary, obs.tangent_basis, obs.sinψ[t], obs.cosψ[t], f_al[t], f_ac[t])
+        pos(body, t) = transit_position(Octofitter.solutionat(ctx, t), body, bary, obs.tangent_basis, obs.rvs.sinψ[t], obs.rvs.cosψ[t], f_al[t], f_ac[t])
         @test [pos(refA, t)[1] for t in 1:nt] ≈ al rtol = 1e-12
         # the pipeline's track is the frame's to within what the prior allows the two to differ by
         @test maximum(abs, al .- track.al) < 60
         # velocities: frame + orbit + redshift + template zero point + κ × along-scan offset
-        inst = obs.rvs.instrument
+        inst = obs.rvs.spectra.instrument
         for t in (1, nt), (k, body, θb) in ((1, refA, θ.bodies.A), (2, refb, θ.bodies.b))
             sol = Octofitter.solutionat(ctx, t)
             w, z = pos(body, t)
@@ -864,25 +1004,25 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         @test abs(sim.velocity[1, 1] - θ.rv / 1000) < 40                # the systemic velocity is the frame's
         @test all(x -> 0.99 < x <= 1, sim.weight)                        # a close pair is whole in the window
         # moving the assumed position along scan is a velocity shift for every emitter
-        shifted = Octofitter.simulate(raw(ref_al=track.al .+ 100), contexts(system(raw(ref_al=track.al .+ 100), astrom), θ)[1])
+        shifted = Octofitter.simulate(raw(ref_al=track.al .+ 100), contexts(system(raw(ref_al=track.al .+ 100), astrom), θ)[1]).rvs
         @test shifted.velocity ≈ sim.velocity .- inst.kappa * 100
         @test abs(inst.kappa * 100) > 14
         # an emitter the pipeline subtracted is not in the spectrum
         mem = ones(2, nt)
         mem[2, 3] = 0
         deb = GaiaDR4RawObs(; rvs=table(), emitters=(A=star, b=star), tangent_point=(RA0, DEC0), wavelength=wave, membership=mem)
-        simd = Octofitter.simulate(deb, contexts(system(deb, astrom), θ)[1])
+        simd = Octofitter.simulate(deb, contexts(system(deb, astrom), θ)[1]).rvs
         @test simd.weight[2, 3] == 0 && simd.weight[2, 4] == sim.weight[2, 4]
         @test simd.flux[:, 4] == sim.flux[:, 4] && simd.flux[:, 3] != sim.flux[:, 3]
         single = GaiaDR4RawObs(; rvs=table(), emitters=(A=star,), tangent_point=(RA0, DEC0), wavelength=wave)
-        @test Octofitter.simulate(single, contexts(system(single, astrom), θ)[1]).flux[:, 3] ≈ simd.flux[:, 3]
+        @test Octofitter.simulate(single, contexts(system(single, astrom), θ)[1]).rvs.flux[:, 3] ≈ simd.flux[:, 3]
 
         # data simulated by the model are most probable at the parameters that made them
         Random.seed!(11)
         truth = Octofitter.generate_from_params(sys, θ; add_noise=true)
         tobs = truth.observations[1]
-        @test tobs isa GaiaDR4RawObs && tobs.table.flux[1] != obs.table.flux[1]
-        @test tobs.rvs.p_bad == obs.rvs.p_bad && tobs.membership == obs.membership
+        @test tobs isa GaiaDR4RawObs && tobs.rvs.table.flux[1] != obs.rvs.table.flux[1]
+        @test tobs.rvs.spectra.p_bad == obs.rvs.spectra.p_bad && tobs.rvs.membership == obs.rvs.membership
         ll = Octofitter.make_ln_like(truth)
         ℓ0 = ll(truth, θ)
         @test isfinite(ℓ0)
@@ -904,7 +1044,92 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         gfd = [central(x -> [model.ℓπcallback(x)], θt, i; h=1e-6)[1] for i in eachindex(θt)]
         @test isapprox(g, gfd; rtol=2e-3, atol=1e-3 * maximum(abs, g))
 
+        # ---- the epoch images of the same pair: three transits of two windows each
+        inst = ImageInstrument(joinpath(FIXTURES, "gaiatwin_image_fixture.h5"))
+        nti, nccd = 3, 2
+        ψi = [ψ[t] + 2e-4 * q for t in 1:nti for q in 1:nccd]                 # the scan angle turns during a transit
+        rows = [(t, q) for t in 1:nti for q in 1:nccd]
+        tracki = catalogue_track([epoch[t] for (t, _) in rows], ψi, [f_al[t] for (t, _) in rows], [f_ac[t] for (t, _) in rows];
+            parallax=40.0, pmra=120.0, pmdec=-80.0, ref_epoch=REF)
+        phase = rand(Random.Xoshiro(8), 2, length(rows)) .- 0.5
+        itable(; samples=[ones(18, 12) for _ in rows]) = Table(; epoch=[epoch[t] for (t, _) in rows], transit=[t for (t, _) in rows],
+            scan_pos_angle=ψi, parallax_factor_al=[f_al[t] for (t, _) in rows], parallax_factor_ac=[f_ac[t] for (t, _) in rows],
+            device=fill("fov1_ccd5", length(rows)), exposure=fill(16 * 0.9828e-3, length(rows)), samples,
+            sample_pos_al=tracki.al .+ (-8.5 .+ phase[1, :]) .* 58.933, sample_pos_ac=tracki.ac .+ (-5.5 .+ phase[2, :]) .* 176.8,
+            sample_size_al=fill(58.933, length(rows)), sample_size_ac=fill(176.8, length(rows)),
+            background=fill(0.05, length(rows)), background_error=fill(0.02, length(rows)))
+        plain = Star(evol, lib)                                               # no RVS library is needed for images
+        imaged(; kw...) = GaiaDR4RawObs(; images=itable(), emitters=(A=plain, b=plain), tangent_point=(RA0, DEC0), image_instrument=inst, kw...)
+        iobs = imaged()
+        @test iobs.rvs === nothing && OG.nwindows(iobs.images.data) == 6 && OG.ntransits(iobs.images.data) == 3
+        @test Octofitter.epochs(iobs) == [epoch[t] for (t, _) in rows]
+        ictx = contexts(system(iobs, astrom), θ)[1]
+        isim = Octofitter.simulate(iobs, ictx)
+        @test isim.rvs === nothing && length(isim.images.samples) == 6 && size(isim.images.w) == (2, 6)
+        # positions are the frame's, at each window's own scan angle; rates are the emitters' own
+        for (r, (t, q)) in enumerate(rows), (k, body) in ((1, refA), (2, refb))
+            sol = Octofitter.solutionat(ictx, r)
+            w, z = transit_position(sol, body, bary, iobs.tangent_basis, sind(ψi[r]), cosd(ψi[r]), f_al[t], f_ac[t])
+            @test isim.images.w[k, r] ≈ w && isim.images.z[k, r] ≈ z
+        end
+        # 2e-4 deg of scan angle within a transit turns the scene about the tangent point: 1 µas here, 0.02 mas at 5″
+        @test isim.images.w[1, 2] - isim.images.w[1, 1] ≈ (isim.images.z[1, 1] - θ.plx * f_ac[1]) * deg2rad(2e-4) rtol = 1e-2
+        fG = SEDFunctionals(lib)
+        @test isim.images.rate[1] ≈ photon_rate(fG, :G, sed!(zeros(OG.nbins(plain)), plain, θ.bodies.A, θ))
+        @test isim.images.rate[1] > isim.images.rate[2] > 0
+        # most of the pair's light is in the window
+        e = sum(isim.images.rate) * 16 * 0.9828e-3
+        @test 0.85 * e < sum(isim.images.samples[1]) < e
+        # both blocks in one observation: one scene, and the log-likelihoods add
+        Random.seed!(21)
+        both = GaiaDR4RawObs(; rvs=table(), images=itable(), emitters=(A=star, b=star), tangent_point=(RA0, DEC0), wavelength=wave, image_instrument=inst)
+        @test both.table.block == [fill(:rvs, nt); fill(:images, 6)] && length(Octofitter.epochs(both)) == nt + 6
+        tboth = Octofitter.generate_from_params(system(both, astrom), θ; add_noise=true)
+        bobs = tboth.observations[1]
+        @test bobs.images.table.samples[1] != both.images.table.samples[1] && size(bobs.images.table.samples[1]) == (18, 12)
+        only_rvs = GaiaDR4RawObs(; rvs=bobs.rvs.table, emitters=(A=star, b=star), tangent_point=(RA0, DEC0), wavelength=wave)
+        only_img = GaiaDR4RawObs(; images=bobs.images.table, emitters=(A=star, b=star), tangent_point=(RA0, DEC0), image_instrument=inst)
+        like(o) = Octofitter.ln_like(o, contexts(system(o, astrom), θ)[1])
+        ℓb = like(bobs)
+        @test isfinite(ℓb) && ℓb ≈ like(only_rvs) + like(only_img)
+        # the pixels hold the pair: moving the companion, the parallax or the flux scale costs likelihood
+        ℓi = like(only_img)
+        liket(o, θ2) = Octofitter.ln_like(o, contexts(system(o, astrom), θ2)[1])
+        withb(; kw...) = merge(θ, (; bodies=merge(θ.bodies, (; b=merge(θ.bodies.b, (; kw...))))))
+        @test liket(only_img, withb(a=1.05 * θ.bodies.b.a)) < ℓi - 10
+        # (a parallax change of 0.05 mas costs 0.3: a shift common to a transit's windows is the attitude's, 0.1 mas wide)
+        @test liket(only_img, merge(θ, (; plx=θ.plx + 1.0))) < ℓi - 10
+        @test liket(only_img, merge(θ, (; plx=θ.plx + 0.05))) > ℓi - 2
+        # subsets by row: the transits are independent, and a block that is left with no rows is dropped
+        sub(inds) = Octofitter.likeobj_from_epoch_subset(bobs, inds)
+        @test sub(1:nt).images === nothing && sub(nt+1:nt+6).rvs === nothing
+        @test like(sub(1:nt+2)) + like(sub(nt+3:nt+6)) ≈ ℓb
+        @test like(sub(nt+1:nt+2)) + like(sub(nt+3:nt+6)) ≈ ℓi
+        # the observation's own variables: a flux scale, a shape coefficient, the attitude jitter
+        vobs = GaiaDR4RawObs(; images=bobs.images.table, emitters=(A=plain, b=plain), tangent_point=(RA0, DEC0), image_instrument=inst,
+            name="imgvars", variables=@variables begin
+                flux_scale ~ LogNormal(0, 0.05)
+                psf1 ~ Normal(0, 1)
+                jitter_al ~ LogUniform(0.01, 1.0)
+            end)
+        vsys = system(vobs)
+        θv(; kw...) = merge(θ, (; observations=(; imgvars=(; flux_scale=1.0, psf1=0.0, jitter_al=inst.transit_shift_sigma[1], kw...))))
+        ℓv = liket(vobs, θv())
+        @test ℓv ≈ ℓi
+        @test liket(vobs, θv(flux_scale=1.2)) < ℓv - 10 && liket(vobs, θv(psf1=3.0)) < ℓv - 10
+        @test liket(vobs, θv(jitter_al=5.0)) < ℓv - 1
+        # the log density and its gradient through the whole model, images included
+        imodel = Octofitter.LogDensityModel(Octofitter.generate_from_params(vsys, θv(); add_noise=true); verbosity=0)
+        θit = imodel.link(Octofitter.sample_priors(Random.Xoshiro(9), vsys))
+        vi, gi = imodel.∇ℓπcallback(θit)
+        @test isfinite(vi) && all(isfinite, gi)
+        gfd = [central(x -> [imodel.ℓπcallback(x)], θit, i; h=1e-6)[1] for i in eachindex(θit)]
+        @test isapprox(gi, gfd; rtol=2e-3, atol=1e-3 * maximum(abs, gi))
+
         # what the model refuses
+        @test_throws ErrorException GaiaDR4RawObs(; emitters=(A=star, b=star), tangent_point=(RA0, DEC0))                # no data
+        @test_throws ErrorException GaiaDR4RawObs(; images=itable(), emitters=(A=plain,), tangent_point=(RA0, DEC0))       # no instrument
+        @test_throws ErrorException GaiaDR4RawObs(; images=itable()[6:-1:1], emitters=(A=plain,), tangent_point=(RA0, DEC0), image_instrument=inst)
         @test_throws ErrorException System(name="noframe", bodies=[A, b], observations=[raw()], variables=@variables begin
             plx ~ Uniform(30, 50)
             logage ~ Uniform(9.6, 9.75)
