@@ -667,6 +667,59 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
     return (; along_scan, ra_offset, dec_offset, epochs=tab.epoch)
 end
 
+"""
+    _dr4_sky_track(obs, posys, sols, epochs, θ_system, θ_obs; keplerian_mult=1)
+
+The modelled sky position of `obs.target` at each solution in `sols` (taken
+at `epochs` [MJD]), split the way the likelihood combines it:
+`(; ξ, η, ϖ)`, the local-plane position without parallax [mas] and the
+parallax [mas] that multiplies the parallax factors. The along-scan
+prediction is `ξ sin ψ + η cos ψ + ϖ f_al`.
+
+It is the reference-point model of [`simulate!`](@ref) evaluated on an
+arbitrary epoch grid, so that a plotted sky track (`skytrackplot`) and the
+likelihood cannot disagree: under an absolute frame the excursion is composed
+with the propagated frame on the sphere and projected about the tangent
+point, with the target's own epoch parallax; under a parallax-only frame it
+is the observation's straight line plus the excursion, at the constant
+`plx`. `keplerian_mult` scales the excursion of `target` from `ref` (the
+plots' exaggeration knob). No detrending is applied.
+"""
+function _dr4_sky_track(obs::GaiaDR4AstromObs, posys, sols, epochs, θ_system, θ_obs;
+                        keplerian_mult=1.0)
+    length(sols) == length(epochs) || throw(ArgumentError(
+        "_dr4_sky_track: $(length(sols)) solutions for $(length(epochs)) epochs"))
+    target = resolveref(posys, obs.target)
+    reference = resolveref(posys, obs.ref)
+    n = length(epochs)
+    ξ = Vector{Float64}(undef, n)
+    η = Vector{Float64}(undef, n)
+    ϖ = Vector{Float64}(undef, n)
+    if _dr4_isabs(posys.frame)
+        _dr4_check_absolute_θ(θ_obs, obs.name)
+        obs.tangent_point === nothing && _dr4_err_no_tangent(obs.name)
+        for (i, sol) in enumerate(sols)
+            ξ[i], η[i] = _dr4_project(frame_ra(sol), frame_dec(sol),
+                keplerian_mult * raoff(sol, target, reference),
+                keplerian_mult * decoff(sol, target, reference), obs.tangent_basis)
+            ϖ[i] = _dr4_source_plx(sol, target, reference)
+        end
+    else
+        ref_epoch = hasproperty(θ_obs, :ref_epoch) ? θ_obs.ref_epoch : 0.0
+        ra0 = hasproperty(θ_obs, :ra_offset_mas) ? θ_obs.ra_offset_mas : 0.0
+        dec0 = hasproperty(θ_obs, :dec_offset_mas) ? θ_obs.dec_offset_mas : 0.0
+        pmra_ = hasproperty(θ_obs, :pmra) ? θ_obs.pmra : 0.0
+        pmdec_ = hasproperty(θ_obs, :pmdec) ? θ_obs.pmdec : 0.0
+        for (i, sol) in enumerate(sols)
+            Δt = (epochs[i] - ref_epoch) / PlanetOrbits.year2day_julian
+            ξ[i] = ra0 + pmra_ * Δt + keplerian_mult * raoff(sol, target, reference)
+            η[i] = dec0 + pmdec_ * Δt + keplerian_mult * decoff(sol, target, reference)
+            ϖ[i] = θ_system.plx
+        end
+    end
+    return (; ξ, η, ϖ)
+end
+
 function simulate(obs::GaiaDR4AstromObs, ctx::ObsContext)
     T = _system_number_type(ctx.θ_system)
     L = length(obs.table.epoch)

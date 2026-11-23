@@ -2358,12 +2358,24 @@ end
 The source's whole path on the sky for one draw: parallactic loops, proper
 motion and the orbital wobble superimposed.
 
+The track is the likelihood's own model of the source, evaluated on a fine
+epoch grid (`Octofitter._dr4_sky_track`, which `GaiaDR4AstromObs` shares).
+Under an absolute frame that is the propagated frame — perspective
+acceleration included — with the orbital excursion composed on the sphere, in
+local-plane coordinates about the data's tangent point, at the source's
+epoch parallax. Under a parallax-only frame it is the observation's straight
+line plus the excursion, at the constant `plx`. Each transit is drawn at the
+modelled position displaced by its along-scan residual along the scan
+direction.
+
 The parallax ellipse has to be projected onto a sky direction. It is taken
 from the system's `ra`/`dec` frame variables when the model declares an
 absolute frame; otherwise pass `ra=`/`dec=` in degrees, or `gaia_id=`, which
 reads the published solution through `Octofitter.gaia_dr3_solution`. (v8 read
 it from `obs.gaia_sol`, which the v9 observation no longer carries — it models
-a sky path and does not need the catalog row.)
+a sky path and does not need the catalog row.) The parallax factors are
+computed from the Earth's ephemeris on the plotted grid, so the drawn ellipse
+is smooth; the likelihood uses the table's `parallax_factor_al`.
 
 Needs the Earth's position, i.e. the DE440 ephemeris data dependency.
 """
@@ -2405,13 +2417,6 @@ function Octofitter.skytrackplot(model::Octofitter.LogDensityModel, chain::Chain
         collect(range(t0 - 0.05d, t1 + 0.05d, length=npoints))
     end
 
-    plx = Float64(θ.plx)
-    ref_epoch = hasproperty(θ_obs, :ref_epoch) ? Float64(θ_obs.ref_epoch) : 0.0
-    pmra_ = hasproperty(θ_obs, :pmra) ? Float64(θ_obs.pmra) : 0.0
-    pmdec_ = hasproperty(θ_obs, :pmdec) ? Float64(θ_obs.pmdec) : 0.0
-    ra0 = hasproperty(θ_obs, :ra_offset_mas) ? Float64(θ_obs.ra_offset_mas) : 0.0
-    dec0 = hasproperty(θ_obs, :dec_offset_mas) ? Float64(θ_obs.dec_offset_mas) : 0.0
-
     # Parallax factors in RA and Dec, from the Earth's barycentric position.
     # `sind`/`cosd` because α and δ are degrees — v1 applied the radian
     # versions here while the likelihood used the degree ones.
@@ -2420,24 +2425,24 @@ function Octofitter.skytrackplot(model::Octofitter.LogDensityModel, chain::Chain
         return (e.x * sind(α) - e.y * cosd(α),
             e.x * cosd(α) * sind(δ) + e.y * sind(α) * sind(δ) - e.z * cosd(δ))
     end
-    linear(t) = ((t - ref_epoch) / PlanetOrbits.year2day_julian)
-    q = ObservableQuery(PlanetOrbits.raoff, obs.target, obs.ref)
-    qd = ObservableQuery(PlanetOrbits.decoff, obs.target, obs.ref)
+    # The likelihood's reference-point model, on the plotting grid and at the
+    # data epochs alike — one function, so the drawn track and the residuals
+    # are about the same model (see `Octofitter._dr4_sky_track`).
+    track(sols, ts) = Octofitter._dr4_sky_track(Octofitter.plotobs(obs), posys, sols, ts,
+        θ, θ_obs; keplerian_mult)
 
     traj = orbitsolve(posys, tgrid; _solvekw(sys)...)
-    kx = keplerian_mult .* Octofitter.evalquery(q, posys, traj)
-    ky = keplerian_mult .* Octofitter.evalquery(qd, posys, traj)
+    trk = track([traj[i] for i in eachindex(tgrid)], tgrid)
     px = similar(tgrid); py = similar(tgrid)
     for (i, t) in enumerate(tgrid)
         fa, fd = pfactors(t)
-        px[i] = ra0 + pmra_ * linear(t) + plx * fa + kx[i]
-        py[i] = dec0 + pmdec_ * linear(t) + plx * fd + ky[i]
+        px[i] = trk.ξ[i] + trk.ϖ[i] * fa
+        py[i] = trk.η[i] + trk.ϖ[i] * fd
     end
 
     rows = series.data_maps[obs]
     dtraj = series.data_trajs[1]
-    dkx = keplerian_mult .* Octofitter.evalquery(q, posys, dtraj)[rows]
-    dky = keplerian_mult .* Octofitter.evalquery(qd, posys, dtraj)[rows]
+    dtrk = track([dtraj[j] for j in rows], epochs)
     r = Octofitter.residuals(obs, obscontext(series, obs; draw=1)).along_scan
     # Degrees in the table, radians in the precomputed projection — see
     # `GaiaDR4AstromObs`.
@@ -2446,8 +2451,8 @@ function Octofitter.skytrackplot(model::Octofitter.LogDensityModel, chain::Chain
     dx = similar(epochs); dy = similar(epochs)
     for (i, t) in enumerate(epochs)
         fa, fd = pfactors(t)
-        dx[i] = ra0 + pmra_ * linear(t) + plx * fa + dkx[i] + r.resid[i] * s[i]
-        dy[i] = dec0 + pmdec_ * linear(t) + plx * fd + dky[i] + r.resid[i] * c[i]
+        dx[i] = dtrk.ξ[i] + dtrk.ϖ[i] * fa + r.resid[i] * s[i]
+        dy[i] = dtrk.η[i] + dtrk.ϖ[i] * fd + r.resid[i] * c[i]
     end
 
     fig = Makie.Figure(; size=(700, 550), figure...)

@@ -482,3 +482,68 @@ end
     @info "anchored two-source model: gradient check" ℓ rel_err = norm(g .- gfd) / norm(g)
     @test norm(g .- gfd) / norm(g) < 1e-5
 end
+
+# `skytrackplot` draws `_dr4_sky_track` on a fine grid and places each transit
+# with it, so at the data epochs it must *be* the likelihood's model.
+@testset "the sky-track helper is the likelihood's model (skytrackplot)" begin
+    A, B = dr4f_wide_bodies()
+    k = DR4F_WIDE
+    abs_sys = Octofitter.System(name="wide", bodies=[A, B],
+        observations=[GaiaDR4AstromObs(dr4f_table(ra0=k.ra + 2e-4, dec0=k.dec - 1e-4);
+                                       name="GaiaDR4", target=:A)],
+        barycentric_lighttime=:off, observing_geometry=:off,
+        variables=@variables begin
+            plx = $(k.plx); ra = $(k.ra); dec = $(k.dec)
+            pmra = $(k.pmra); pmdec = $(k.pmdec); rv = $(k.rv)
+            ref_epoch = $DR4F_REF
+        end)
+    plx_sys = Octofitter.System(name="wideplx", bodies=[A, B],
+        observations=[GaiaDR4AstromObs(dr4f_table(); name="GaiaDR4", target=:A,
+            variables=@variables begin
+                ra_offset_mas = 120.0; dec_offset_mas = -40.0
+                pmra = $(k.pmra); pmdec = $(k.pmdec); ref_epoch = $DR4F_REF
+            end)],
+        barycentric_lighttime=:off, observing_geometry=:off,
+        variables=@variables begin plx = $(k.plx) end)
+
+    for (label, sys) in (("absolute", abs_sys), ("parallax-only", plx_sys))
+        obs = only(sys.observations)
+        sim = dr4f_simulate(sys)
+        nt = Octofitter.make_arr2nt(sys)(Float64[])
+        posys = Octofitter.make_ln_like(sys).build(nt)
+        traj = orbitsolve(posys, DR4F_EPOCHS; Octofitter._solvekw(sys)...)
+        sols = [traj[i] for i in eachindex(DR4F_EPOCHS)]
+        key = Symbol(Octofitter.likelihoodname(obs))
+        obsns = hasproperty(nt, :observations) ? nt.observations : (;)
+        θ_obs = hasproperty(obsns, key) ? getproperty(obsns, key) : (;)
+        trk = Octofitter._dr4_sky_track(obs, posys, sols, DR4F_EPOCHS, nt, θ_obs)
+        w = @. trk.ξ * sind(DR4F_PSI) + trk.η * cosd(DR4F_PSI) + trk.ϖ * DR4F_FAL
+        @test maximum(abs, trk.ξ .- sim.ra_offset) < 1e-9
+        @test maximum(abs, trk.η .- sim.dec_offset) < 1e-9
+        @test maximum(abs, w .- sim.along_scan) < 1e-9
+        # The exaggeration knob scales the excursion and nothing else: the
+        # parallax is untouched. On the flat parallax-only model doubling it
+        # adds one more excursion; under the absolute frame the doubled
+        # excursion is composed on the sphere like any other (checked with
+        # the independent spherical trigonometry above).
+        trk2 = Octofitter._dr4_sky_track(obs, posys, sols, DR4F_EPOCHS, nt, θ_obs;
+                                         keplerian_mult=2.0)
+        @test trk2.ϖ == trk.ϖ
+        bary = PlanetOrbits.barycentre(posys)
+        if label == "absolute"
+            tp = obs.tangent_point
+            err = maximum(eachindex(sols)) do i
+                sol = sols[i]
+                d = dr4f_ungnomonic(2raoff(sol, :A, bary), 2decoff(sol, :A, bary),
+                                    frame_ra(sol), frame_dec(sol))
+                e = dr4f_gnomonic(d..., tp...)
+                hypot(trk2.ξ[i] - e[1], trk2.η[i] - e[2])
+            end
+            @test err < 1e-5
+        else
+            exc = [raoff(s, :A, bary) for s in sols]
+            @test maximum(abs, (trk2.ξ .- trk.ξ) .- exc) < 1e-9
+        end
+        @info "sky track vs likelihood, $label" max_dw = maximum(abs, w .- sim.along_scan)
+    end
+end
