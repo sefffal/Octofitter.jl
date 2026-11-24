@@ -134,7 +134,7 @@ dr4f_lnlike(sys) = Octofitter.make_ln_like(sys)(sys, Octofitter.make_arr2nt(sys)
     nt = Octofitter.make_arr2nt(sys)(Float64[])
     posys = Octofitter.make_ln_like(sys).build(nt)
     traj = orbitsolve(posys, DR4F_EPOCHS; Octofitter._solvekw(sys)...)
-    ϖ_t = [Octofitter._dr4_frame_plx(traj[k]) for k in eachindex(DR4F_EPOCHS)]
+    ϖ_t = [frame_plx(traj[k]) for k in eachindex(DR4F_EPOCHS)]
     au_per_pc = 206264.80624709636
     d0 = 1000 / DR4F_BARNARD.plx                                          # pc
     vr = DR4F_BARNARD.rv / 1e3 / DR4F_AV / au_per_pc                          # pc / yr
@@ -417,7 +417,7 @@ end
         # the (separately written) `barycentre_parallax` recovers the
         # barycentre's, and its sign follows the line-of-sight offset.
         ϖ_src = Octofitter._dr4_source_plx(sol_ref, tgt, bary)
-        ϖ_bar = Octofitter._dr4_frame_plx(sol_ref)
+        ϖ_bar = frame_plx(sol_ref)
         dz = posz(sol_ref, tgt, bary)
         @test barycentre_parallax(ϖ_src, dz) ≈ ϖ_bar rtol = 1e-12
         @test sign(ϖ_src - ϖ_bar) == -sign(dz)

@@ -1,6 +1,6 @@
 name = "Octofitter"
 uuid = "daf3887e-d01a-44a1-9d7e-98f15c5d69c9"
-version = "9.0.1"
+version = "9.1.0"
 authors = ["William Thompson <will.thompson@outlook.com>", "Jensen Lawrence", "Dori Blakely", "Clarissa R. Do O"]
 
 [deps]
@@ -118,7 +118,9 @@ Pathfinder = "0.10"
 # resolver can silently fall back to PlanetOrbits 0.11.4 and the user only
 # finds out at precompile time
 # (`UndefVarError: mjup not defined in PlanetOrbits`).
-PlanetOrbits = "1"
+# 1.1 for the public `frame_position`/`frame_distance`/`frame_plx` accessors
+# that `GaiaDR4AstromObs` builds its absolute-frame reference point from.
+PlanetOrbits = "1.1"
 PrecompileTools = "1.1.2"
 Preferences = "1"
 Printf = "1"

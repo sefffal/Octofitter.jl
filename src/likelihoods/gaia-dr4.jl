@@ -473,79 +473,71 @@ function _dr4_tangent_basis(α0, δ0)
 end
 
 """
-    _dr4_project(α, δ, x, y, basis)
+    _dr4_project(r, x, y, basis)
 
 Gnomonic coordinates `(ξ, η)` [mas] about the tangent point of the direction
-whose gnomonic coordinates about `(α, δ)` [deg] are `(x, y)` [mas]. `basis`
-is the tangent point's [`_dr4_tangent_basis`](@ref).
+whose gnomonic coordinates about the direction of `r` are `(x, y)` [mas]. `r`
+is the barycentre's propagated position, [`frame_position`](@ref)`(sol)`
+(any length unit; only its direction is used), and `basis` is the tangent
+point's [`_dr4_tangent_basis`](@ref).
 
 Gnomonic coordinates are central projection: `(x, y)` about a direction `u`
 with local axes `e_α`, `e_δ` name the ray through `u + x e_α + y e_δ` (x, y in
 radians). Projecting that ray about the tangent point is
 
-    ξ = (r ⋅ e_α0) / (r ⋅ u0),   η = (r ⋅ e_δ0) / (r ⋅ u0)
+    ξ = (R ⋅ e_α0) / (R ⋅ u0),   η = (R ⋅ e_δ0) / (R ⋅ u0)
 
-and the normalization of `r` cancels. Both steps are exact, so the result is
+and the normalization of `R` cancels. Both steps are exact, so the result is
 the target's gnomonic position about the tangent point whatever the size of
 the excursion or of the barycentre's offset from the tangent point — the
 first-order alternative, `gnomonic(α, δ) + (x, y)`, mixes two tangent planes
 and is wrong by `~ |(x, y)| ⋅ |(α, δ) − (α0, δ0)| ⋅ tan δ` (see the
 "Reference point" section of [`GaiaDR4AstromObs`](@ref)). With `x = y = 0` it
-is the gnomonic projection of `(α, δ)` itself.
+is the gnomonic projection of `r`'s direction itself.
+
+The barycentre's triad is built from `r = (rx, ry, rz)` arithmetically, with
+no transcendental: with `d = |r|` and `ρ = √(rx² + ry²)`,
+`u = r/d`, `e_α = (-ry, rx, 0)/ρ` and `e_δ = u × e_α = (-rz rx, -rz ry, ρ²)/(dρ)`
+— the same axes `frame_ra`/`frame_dec` would give through
+`sincosd`, since `frame_position` reproduces those two exactly. `R` is
+scaled by `d` below so that only one division by `ρ` remains. (The triad is
+undefined exactly at a celestial pole, `ρ = 0`, as right ascension is.)
 
 ξ points toward increasing α and η toward increasing δ — the axes ψ is
 measured in. The DR4 data model defines `ra0`/`dec0` as the tangent point
 "from which the local plane coordinates centroid_pos_al and centroid_pos_ac
-are counted". `r ⋅ e_α0` and `r ⋅ e_δ0` are differences of O(1) products
+are counted". `R ⋅ e_α0` and `R ⋅ e_δ0` are differences of O(1) products
 whose result is the arcsecond-scale offset; the cancellation costs ~1e-16
 rad, i.e. ~2e-8 mas.
 """
-@inline function _dr4_project(α, δ, x, y, basis)
-    sα, cα = sincosd(α)
-    sδ, cδ = sincosd(δ)
+@inline function _dr4_project(r, x, y, basis)
+    rx, ry, rz = r[1], r[2], r[3]
+    ρ = sqrt(rx * rx + ry * ry)
+    d = sqrt(ρ * ρ + rz * rz)
     xr = x / _DR4_RAD2MAS
     yr = y / _DR4_RAD2MAS
-    # r = u + x e_α + y e_δ, unnormalized.
-    rx = cδ * cα - xr * sα - yr * sδ * cα
-    ry = cδ * sα + xr * cα - yr * sδ * sα
-    rz = sδ + yr * cδ
+    # d R = r + x d e_α + y d e_δ, unnormalized.
+    a = xr * d / ρ
+    b = yr * rz / ρ
+    Rx = rx - a * ry - b * rx
+    Ry = ry + a * rx - b * ry
+    Rz = rz + yr * ρ
     u0x, u0y, u0z, ax, ay, az, dx, dy, dz = basis
-    scale = _DR4_RAD2MAS / (rx * u0x + ry * u0y + rz * u0z)
-    return ((rx * ax + ry * ay + rz * az) * scale,
-            (rx * dx + ry * dy + rz * dz) * scale)
+    scale = _DR4_RAD2MAS / (Rx * u0x + Ry * u0y + Rz * u0z)
+    return ((Rx * ax + Ry * ay + Rz * az) * scale,
+            (Rx * dx + Ry * dy + Rz * dz) * scale)
 end
-
-"""
-The system barycentre's propagated distance at this solution's epoch [pc].
-
-PlanetOrbits has public accessors for every other propagated frame quantity
-(`frame_ra`, `frame_dec`, `frame_pmra`, `frame_pmdec`, `frame_rv`) but not
-for the distance, so this reads two of its internals: `frame(sol)` (the
-effective frame of the solve — de-Dopplered under the light-time solve, see
-its docstring) and `_propagate_dist`, at the solved emission epoch
-`traj.t_em` — the same frame, function and epoch `frame_ra`/`frame_dec` are
-computed from, so position and parallax describe one worldline. Replace with
-a public accessor when PlanetOrbits gains one.
-"""
-@inline function _dr4_frame_dist(sol::PlanetOrbits._AbsSol)
-    _, _, _, d_pc = PlanetOrbits._propagate_dist(PlanetOrbits.frame(sol),
-                                                @inbounds sol.traj.t_em[sol.k])
-    return d_pc
-end
-
-"""The system barycentre's parallax at this solution's epoch [mas], `1000 / d(t)`."""
-@inline _dr4_frame_plx(sol::PlanetOrbits._AbsSol) = 1000 / _dr4_frame_dist(sol)
 
 """
 The parallax [mas] of `target` at this solution's epoch: `1000 / (d + Δz)`
-for the barycentre's propagated distance `d` [pc] and the target's
+for the barycentre's propagated distance `d = frame_distance(sol)` [pc] and the target's
 line-of-sight offset `Δz = posz(sol, target, reference)` [AU, +receding] from
 it — the inverse of [`barycentre_parallax`](@ref). For a blended photocentre
 `Δz` is the flux-weighted mean, which is its parallax to first order in
 `Δz/d` (the next term is ~1e-10 of the parallax for a 100 au pair at 10 pc).
 """
 @inline _dr4_source_plx(sol::PlanetOrbits._AbsSol, target, reference) =
-    1000 / (_dr4_frame_dist(sol) + PlanetOrbits.posz(sol, target, reference) / PlanetOrbits.pc2au)
+    1000 / (frame_distance(sol) + PlanetOrbits.posz(sol, target, reference) / PlanetOrbits.pc2au)
 
 # The θ-level half of the `check_siblings` contract: `hasproperty` on the θ
 # NamedTuple is a compile-time constant, so this folds to nothing on a valid
@@ -650,7 +642,7 @@ function simulate!(along_scan, ra_offset, dec_offset, obs::GaiaDR4AstromObs, ctx
         basis = obs.tangent_basis
         @inbounds for i in eachindex(tab.epoch)
             sol = solutionat(ctx, i)
-            ξ, η = _dr4_project(frame_ra(sol), frame_dec(sol),
+            ξ, η = _dr4_project(frame_position(sol),
                                 ra_offset[i], dec_offset[i], basis)
             ra_offset[i] = ξ
             dec_offset[i] = η
@@ -699,7 +691,7 @@ function _dr4_sky_track(obs::GaiaDR4AstromObs, posys, sols, epochs, θ_system, �
         _dr4_check_absolute_θ(θ_obs, obs.name)
         obs.tangent_point === nothing && _dr4_err_no_tangent(obs.name)
         for (i, sol) in enumerate(sols)
-            ξ[i], η[i] = _dr4_project(frame_ra(sol), frame_dec(sol),
+            ξ[i], η[i] = _dr4_project(frame_position(sol),
                 keplerian_mult * raoff(sol, target, reference),
                 keplerian_mult * decoff(sol, target, reference), obs.tangent_basis)
             ϖ[i] = _dr4_source_plx(sol, target, reference)
