@@ -44,9 +44,7 @@ function HIRES_rvs(target, catalog=datadep"HIRES_rvs"; inst_idx::Int=1)
     df_all = Table(
         Tables.rowtable(
         (open(fname,"r") do f
-            for _ in 1:17
-                readline(f)
-            end
+            # HIRES `.vels` files have no header: every line is an epoch.
             rows = NamedTuple[]
             for line in eachline(f)
                 jd = tryparse(Float64, line[1:13])
