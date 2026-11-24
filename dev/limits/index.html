@@ -7,7 +7,7 @@ using CairoMakie
 using PairPlots
 using Statistics
 using Pigeons</code></pre><h2 id="Photometry-Model"><a class="docs-heading-anchor" href="#Photometry-Model">Photometry Model</a><a id="Photometry-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Photometry-Model" title="Permalink"></a></h2><p>We will need to decide on an atmosphere model to map image intensities into mass. Here we use the Sonora Bobcat cooling and atmosphere models which will be auto-downloaded by Octofitter:</p><pre><code class="language-julia hljs">const cooling_tracks = Octofitter.sonora_cooling_interpolator()
-const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#629&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><div class="admonition is-warning" id="Masses-are-in-solar-masses-b7f78b55ad985128"><header class="admonition-header">Masses are in solar masses<a class="admonition-anchor" href="#Masses-are-in-solar-masses-b7f78b55ad985128" title="Permalink"></a></header><div class="admonition-body"><p>There is a single mass unit throughout, M⊙, and these interpolators take M⊙ by default. <code>mjup</code> is a plain multiplicative constant, so a Jupiter-mass threshold is written <code>10mjup</code>, <strong>not</strong> <code>10</code> — a bare <code>10</code> means ten solar masses, which lands off the end of the grid and quietly returns <code>NaN</code>. Pass <code>mass_unit=:Mjup</code> to the constructors if you would rather keep a script in Jupiter masses.</p></div></div><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes the Hipparcos-Gaia proper motion anomaly.</p><p><code>HGCAObs</code> is a helper over the joint Gaia-Hipparcos likelihood <a href="../api/#Octofitter.G23HObs"><code>G23HObs</code></a>, restricted to the six HGCA channels. It models the actual Gaia and Hipparcos scan epochs; <code>freeze_epochs=true</code> below fixes the epoch selection, which is much faster and is what makes a detection-limit sweep practical.</p><pre><code class="language-julia hljs">A = Body(
+const sonora_temp_mass_L = Octofitter.sonora_photometry_interpolator(:Keck_L′)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(::Octofitter.var&quot;#model_interpolator#634&quot;{Interpolations.FilledExtrapolation{Float64, 2, Interpolations.ScaledInterpolation{Float64, 2, Interpolations.BSplineInterpolation{Float64, 2, Matrix{Float64}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{Base.OneTo{Int64}, Base.OneTo{Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, Interpolations.BSpline{Interpolations.Linear{Interpolations.Throw{Interpolations.OnGrid}}}, Float64}, Float64, Float64, Float64, Float64, Float64}) (generic function with 1 method)</code></pre><div class="admonition is-warning" id="Masses-are-in-solar-masses-b7f78b55ad985128"><header class="admonition-header">Masses are in solar masses<a class="admonition-anchor" href="#Masses-are-in-solar-masses-b7f78b55ad985128" title="Permalink"></a></header><div class="admonition-body"><p>There is a single mass unit throughout, M⊙, and these interpolators take M⊙ by default. <code>mjup</code> is a plain multiplicative constant, so a Jupiter-mass threshold is written <code>10mjup</code>, <strong>not</strong> <code>10</code> — a bare <code>10</code> means ten solar masses, which lands off the end of the grid and quietly returns <code>NaN</code>. Pass <code>mass_unit=:Mjup</code> to the constructors if you would rather keep a script in Jupiter masses.</p></div></div><h2 id="Proper-Motion-Anomaly-Data"><a class="docs-heading-anchor" href="#Proper-Motion-Anomaly-Data">Proper Motion Anomaly Data</a><a id="Proper-Motion-Anomaly-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Proper-Motion-Anomaly-Data" title="Permalink"></a></h2><p>We start by defining and sampling from a model that only includes the Hipparcos-Gaia proper motion anomaly.</p><p><code>HGCAObs</code> is a helper over the joint Gaia-Hipparcos likelihood <a href="../api/#Octofitter.G23HObs"><code>G23HObs</code></a>, restricted to the six HGCA channels. It models the actual Gaia and Hipparcos scan epochs; <code>freeze_epochs=true</code> below fixes the epoch selection, which is much faster and is what makes a detection-limit sweep practical.</p><pre><code class="language-julia hljs">A = Body(
     name=&quot;A&quot;,
     variables=@variables begin
         mass = system.M_pri
@@ -86,18 +86,18 @@ chain_pma, pt = octofit_pigeons(model_pma, n_chains=16, n_chains_variational=16,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.84       3.18       1.55   1.71e+09  -3.38e+05          0      0.806          1          1
-        4          0       5.89       4.02      0.808   3.08e+09  -6.84e+04          0       0.68          1          1
-        8          0       6.73       4.44       1.33   5.78e+09  -1.42e+04          0       0.64          1          1
-       16          0       6.52       5.29       2.69   1.13e+10  -1.05e+03          0      0.619      0.998          1
-       32          0       7.44       5.62       6.26   2.22e+10       -124  1.25e-104      0.579      0.999          1
-       64          7       7.33       2.22       11.6   4.56e+10      -11.7      0.095      0.692          1          1
-      128         15       7.43       2.28       25.1   9.16e+10      -12.1     0.0696      0.687          1          1
-      256         31       8.22       2.37         49   1.82e+11      -11.9      0.163      0.658          1          1
-      512         74        8.4       2.33       94.4   3.64e+11      -12.1      0.314      0.654          1          1
- 1.02e+03        150       8.25       2.44        180   7.27e+11      -12.1      0.396      0.655          1          1
- 2.05e+03        307       8.26       2.38        376   1.45e+12      -12.1      0.416      0.657          1          1
-  4.1e+03        633       8.24       2.39        683   2.91e+12      -12.1      0.428      0.657          1          1
+        2          0       2.84       3.18       2.04   1.71e+09  -3.38e+05          0      0.806          1          1
+        4          0       5.89       4.02      0.817   3.08e+09  -6.84e+04          0       0.68          1          1
+        8          0       6.73       4.44        1.4   5.78e+09  -1.42e+04          0       0.64          1          1
+       16          0       6.52       5.29        2.5   1.13e+10  -1.05e+03          0      0.619      0.998          1
+       32          0       7.44       5.62       6.24   2.22e+10       -124  1.25e-104      0.579      0.999          1
+       64          7       7.33       2.22       12.9   4.56e+10      -11.7      0.095      0.692          1          1
+      128         15       7.43       2.28       24.9   9.16e+10      -12.1     0.0696      0.687          1          1
+      256         31       8.22       2.37       48.3   1.82e+11      -11.9      0.163      0.658          1          1
+      512         74        8.4       2.33       93.9   3.64e+11      -12.1      0.314      0.654          1          1
+ 1.02e+03        150       8.25       2.44        179   7.27e+11      -12.1      0.396      0.655          1          1
+ 2.05e+03        307       8.26       2.38        352   1.45e+12      -12.1      0.416      0.657          1          1
+  4.1e+03        633       8.24       2.39        714   2.91e+12      -12.1      0.428      0.657          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot the marginal mass vs. semi-major axis posterior with contours using PairPlots.jl. Note that <code>B_mass</code> is in solar masses, so we convert for the plot:</p><pre><code class="language-julia hljs">pairplot(
     PairPlots.Series(
         (;
@@ -209,13 +209,13 @@ chain_img, pt = octofit_pigeons(model_img, n_chains=5, n_chains_variational=5, n
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0          1       1.96      0.809   8.16e+06       -281          0      0.671          1          1
-        4          0       2.07        2.7     0.0206   9.52e+04  -1.02e+03          0       0.47          1          1
-        8          0       1.76       1.88     0.0444   1.62e+05       8.41   9.49e-05      0.595          1          1
-       16          1       1.81       2.28     0.0977   3.22e+05       12.9   0.000123      0.546          1          1
-       32          0       1.94       2.69      0.182   5.65e+05       11.2       0.13      0.486          1          1
-       64          2       2.38       1.88      0.794   1.79e+07        8.7     0.0985      0.527          1          1
-      128         13        2.2       2.14      0.599   1.88e+07       7.94      0.164      0.518          1          1
+        2          0          1       1.96      0.778   8.17e+06       -281          0      0.671          1          1
+        4          0       2.07        2.7     0.0212   9.52e+04  -1.02e+03          0       0.47          1          1
+        8          0       1.76       1.88     0.0443   1.62e+05       8.41   9.49e-05      0.595          1          1
+       16          1       1.81       2.28      0.098   3.22e+05       12.9   0.000123      0.546          1          1
+       32          0       1.94       2.69      0.202   5.65e+05       11.2       0.13      0.486          1          1
+       64          2       2.38       1.88      0.798   1.79e+07        8.7     0.0985      0.527          1          1
+      128         13        2.2       2.14      0.581   1.88e+07       7.94      0.164      0.518          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Plot mass vs. semi-major axis posterior:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
@@ -287,8 +287,8 @@ chain_both, pt = octofit_pigeons(model_both, n_chains=5, n_chains_variational=5,
 <span class="sgr36"><span class="sgr1">└ </span></span>  D = 11
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Determined number type
 <span class="sgr36"><span class="sgr1">└ </span></span>  T = Float64
-ℓπcallback(θ): 0.000089 seconds (40 allocations: 72.484 KiB)
-∇ℓπcallback(θ): 6.692028 seconds (14.27 M allocations: 725.330 MiB, 2.06% gc time, 99.99% compilation time)
+ℓπcallback(θ): 0.000125 seconds (40 allocations: 72.484 KiB)
+∇ℓπcallback(θ): 7.171530 seconds (14.27 M allocations: 725.302 MiB, 2.28% gc time, 99.99% compilation time)
 <span class="sgr36"><span class="sgr1">┌ Info: </span></span>Starting values not provided for all parameters! Guessing starting point using global optimization:
 <span class="sgr36"><span class="sgr1">│ </span></span>  num_params = 11
 <span class="sgr36"><span class="sgr1">└ </span></span>  num_fixed = 0
@@ -304,16 +304,16 @@ chain_both, pt = octofit_pigeons(model_both, n_chains=5, n_chains_variational=5,
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   scans     restarts      Λ        Λ_var      time(s)    allc(B)  log(Z₁/Z₀)   min(α)     mean(α)    min(αₑ)   mean(αₑ)
 ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ────────── ──────────
-        2          0       2.27       2.62       1.47   4.84e+08  -1.27e+06          0      0.456          1          1
-        4          0       2.85       3.27      0.443   9.05e+08  -1.28e+06          0      0.321          1          1
-        8          0       2.76        3.3      0.787   1.73e+09  -9.83e+05          0      0.326          1          1
-       16          0       3.28       3.06       1.28   3.47e+09  -2.22e+05          0      0.295          1          1
-       32          0       3.15       3.44       2.76    6.8e+09  -6.77e+04          0      0.268          1          1
-       64          3       3.52       2.61       6.28   1.42e+10      -4.87          0       0.32          1          1
-      128          7       3.65       2.51       11.9   2.84e+10      -5.07          0      0.316          1          1
-      256         12       3.63       2.66       23.1   5.71e+10      -4.66          0      0.301          1          1
-      512         23        3.7       2.59       44.4   1.12e+11      -3.84          0      0.302          1          1
- 1.02e+03         47       3.75       2.69       82.6   2.25e+11      -3.98  1.45e-109      0.285          1          1
+        2          0       2.27       2.62       1.69   4.84e+08  -1.27e+06          0      0.456          1          1
+        4          0       2.85       3.27      0.407   9.05e+08  -1.28e+06          0      0.321          1          1
+        8          0       2.76        3.3      0.777   1.73e+09  -9.83e+05          0      0.326          1          1
+       16          0       3.28       3.06       1.46   3.47e+09  -2.22e+05          0      0.295          1          1
+       32          0       3.15       3.44       2.59    6.8e+09  -6.77e+04          0      0.268          1          1
+       64          3       3.52       2.61       5.94   1.42e+10      -4.87          0       0.32          1          1
+      128          7       3.65       2.51       10.3   2.84e+10      -5.07          0      0.316          1          1
+      256         12       3.63       2.66       20.5   5.71e+10      -4.66          0      0.301          1          1
+      512         23        3.7       2.59       40.5   1.12e+11      -3.84          0      0.302          1          1
+ 1.02e+03         47       3.75       2.69         80   2.25e+11      -3.98  1.45e-109      0.285          1          1
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</code></pre><p>Compare all three posteriors to see limits:</p><pre><code class="language-julia hljs">vis_layers = (
     PairPlots.Contour(sigmas=[1,3]),
     PairPlots.MarginStepHist(),
@@ -347,4 +347,4 @@ pairplot(
         :sma=&gt;&quot;log Semi-major axis [au]&quot;,
         :mass=&gt;&quot;log Mass [Mⱼᵤₚ]&quot;
     )
-)</code></pre><img src="27e97024.png" alt="Example block output" width="535" height="404"/><p>For a systematic version of this analysis — injecting companions on a grid of mass and separation and measuring what fraction are recovered — see <a href="../completeness/#completeness">Detection Completeness Mapping</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 24 November 2026 15:26">Tuesday 24 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="27e97024.png" alt="Example block output" width="535" height="404"/><p>For a systematic version of this analysis — injecting companions on a grid of mass and separation and measuring what fraction are recovered — see <a href="../completeness/#completeness">Detection Completeness Mapping</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rv/">« RV and Proper Motion Anomaly</a><a class="docs-footer-nextpage" href="../completeness/">Detection Completeness Mapping »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 24 November 2026 22:19">Tuesday 24 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
