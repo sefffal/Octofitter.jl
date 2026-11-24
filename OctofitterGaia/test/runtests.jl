@@ -850,6 +850,14 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
         ll, ll_good = image_transit_loglike(masked, 1, w, z, rate, mom; shape=(0.4, -0.2), flux_scale=1.01)
         @test ll == ll_good
         @test ll_good ≈ logpdf(N, masked.samples[keep]) rtol = 1e-9
+        # a model error is a variance that grows with the square of the source electrons
+        floored = EpochImages(table(2:2, 1:2), ImageInstrument(inst; model_error=0.005); p_bad=0.0)
+        N, keep = dense(floored, w, z, rate, mom)
+        @test image_transit_loglike(floored, 1, w, z, rate, mom)[2] ≈ logpdf(N, floored.samples[keep]) rtol = 1e-9
+        _, m0, v0 = OG._window_design(small, 1, w[:, 1], z[:, 1], rate, mom, (), 1.0)
+        _, _, v1 = OG._window_design(floored, 1, w[:, 1], z[:, 1], rate, mom, (), 1.0)
+        @test v1 ≈ v0 .+ (0.005 .* (m0 .- tr.background)) .^ 2
+        @test maximum(v1) > 2 * maximum(v0)                                # 0.5 % of 5×10⁴ e⁻ against their square root
         # a sampled jitter replaces the instrument's width of the per-transit shift
         wide = EpochImages(table(2:2, 1:2), ImageInstrument(inst; transit_shift_sigma=(0.7, 9.0)))
         @test image_transit_loglike(small, 1, w, z, rate, mom; jitter=(0.7, 9.0))[2] ≈ image_transit_loglike(wide, 1, w, z, rate, mom)[2]
@@ -905,7 +913,7 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
             take(n) = (v = p[o+1:o+n]; o += n; v)
             return reshape(take(4), 2, 2), reshape(take(4), 2, 2), take(2), reshape(take(12), 6, 2), Tuple(take(nshape)), take(1)[1], Tuple(take(2))
         end
-        for (i2, pb, shape) in ((inst, 1e-3, (0.3, -0.2)), (ImageInstrument(inst; bad_sigma=5.0, bad_fraction=0.002), 0.5, (0.3,)),
+        for (i2, pb, shape) in ((inst, 1e-3, (0.3, -0.2)), (ImageInstrument(inst; bad_sigma=5.0, bad_fraction=0.002, model_error=0.004), 0.5, (0.3,)),
             (inst, 0.0, ()), (ImageInstrument(inst; nshapes=0), 1e-3, ()), (ImageInstrument(inst; window_shape_sigma=0.3), 1e-3, (0.1, 0.1, 0.1)))
             d2 = EpochImages(table(2:2, 1:2; samples=(k, t) -> (s = Float64.(tr.samples[:, :, k, t]); s[3:5, 2k] .= NaN; s)), i2; p_bad=pb)
             p0 = pack(w .+ [0.0 0.2; 0.3 0.1], z .+ [1.0 0.0; -2.0 0.5], rate, mom, shape, 1.02, (0.2, 4.0))

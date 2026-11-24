@@ -240,7 +240,7 @@ function _image_transit_adjoint!(gw, gz, grate, gmoments, gshape, d::EpochImages
     K, nw = length(rate), length(wins)
     iw, it = d.window_modes, d.transit_modes
     Kw, Kt, P = length(iw), length(it), 5 + M
-    ron2, bs2, bf2 = inst.read_noise^2, inst.bad_sigma^2, inst.bad_fraction^2
+    ron2, me2, bs2, bf2 = inst.read_noise^2, inst.model_error^2, inst.bad_sigma^2, inst.bad_fraction^2
     shp = ntuple(m -> m <= length(shape) ? Float64(shape[m]) : 0.0, Val(M))
     pb = d.p_bad[t]
     nstate = pb == 0 ? 1 : 2
@@ -281,7 +281,7 @@ function _image_transit_adjoint!(gw, gz, grate, gmoments, gshape, d::EpochImages
                 nvalid += 1
                 _sample_vector!(uP, basis, win, i, j, ws, zs, electrons, cvecs, Val(M), Val(NM))
                 μ, m = _sample_mean(u, win.background, shp)
-                var = max(μ, 0.0) + ron2
+                var = max(μ, 0.0) + ron2 + me2 * m^2
                 varb = var + bs2 + bf2 * m^2
                 u[P] = y - μ
                 J1 += log(var)
@@ -381,7 +381,7 @@ function _image_transit_adjoint!(gw, gz, grate, gmoments, gshape, d::EpochImages
                         u[4+m] = shapes[m]
                     end
                     μ, m = _sample_mean(u, win.background, shp)
-                    var = max(μ, 0.0) + ron2
+                    var = max(μ, 0.0) + ron2 + me2 * m^2
                     varb = var + bs2 + bf2 * m^2
                     u[P] = y - μ
                     # adjoints of the sample's vector and of its two variances
@@ -405,7 +405,7 @@ function _image_transit_adjoint!(gw, gz, grate, gmoments, gshape, d::EpochImages
                         s == 1 ? (vbar = vb) : (vbarb = vb)
                     end
                     μbar = (μ > 0 ? vbar + vbarb : 0.0) - ubar[P]
-                    mbar = μbar + 2 * bf2 * m * vbarb
+                    mbar = μbar + 2 * bf2 * m * vbarb + 2 * me2 * m * (vbar + vbarb)
                     ubar[2] += mbar
                     for a in 1:M
                         gshape[a] += mbar * u[4+a]

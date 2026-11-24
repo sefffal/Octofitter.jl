@@ -34,6 +34,8 @@
 #
 # Usage:
 #   julia build_image_basis_gaiatwin.jl <GaiaTwin checkout> <out.h5> [half_al=900] [half_ac=1800] [hx=4] [hy=12] [fov1_ccd5 ...]
+#
+# The number of shape modes is `IMAGE_BASIS_NMODES` in the environment (3).
 
 using Pkg
 Pkg.activate(; temp=true)
@@ -139,5 +141,5 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     arg(i, d) = length(ARGS) >= i ? parse(Float64, ARGS[i]) : d
     devices = length(ARGS) >= 7 ? ARGS[7:end] : ["fov$(f)_ccd$(k)" for f in 1:2 for k in 1:9]
-    main(ARGS[2], arg(3, 900.0), arg(4, 1800.0), arg(5, 4.0), arg(6, 12.0), devices)
+    main(ARGS[2], arg(3, 900.0), arg(4, 1800.0), arg(5, 4.0), arg(6, 12.0), devices; nmodes=parse(Int, get(ENV, "IMAGE_BASIS_NMODES", "3")))
 end

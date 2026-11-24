@@ -4,7 +4,7 @@
 # One transit of a source is up to nine AF windows. The samples y of window
 # q are modelled as
 #
-#     y = μ(θ) + B_q(θ) a_q + T_q(θ) c + ε,    ε ~ N(0, diag(μ + σ_read²))
+#     y = μ(θ) + B_q(θ) a_q + T_q(θ) c + ε,    ε ~ N(0, diag(μ + σ_read² + (ϵ × sources)²))
 #
 # with μ the scene (background plus every point source through the device's
 # chromatic image basis) and the columns of B_q and T_q the directions in
@@ -37,6 +37,11 @@ is marginalised. Nothing here is sampled; the widths are placeholders to be
 calibrated on the population.
 
   - `read_noise = 4.48` [e⁻]: per sample.
+  - `model_error = 0.0`: what the image model is not trusted beyond, as a
+    fraction of the source electrons in a sample; its square times those
+    electrons squared is added to the variance of every sample, without
+    correlation between samples. Photon noise is `1 / sqrt(electrons)`, so
+    this is what limits a bright star.
   - `window_flux_sigma = 0.005`, `transit_flux_sigma = 0.02`: fractional
     flux scale of one window, and of all the windows of a transit.
   - `window_shift_sigma = (0.05, 5.0)`, `transit_shift_sigma = (0.1, 5.0)`
@@ -57,6 +62,7 @@ from the data.
 struct ImageInstrument
     bases::Dict{String,ImageBasis}
     read_noise::Float64
+    model_error::Float64
     window_flux_sigma::Float64
     window_shift_sigma::NTuple{2,Float64}
     window_shape_sigma::Float64
@@ -68,7 +74,7 @@ struct ImageInstrument
     bad_fraction::Float64
 end
 
-function ImageInstrument(bases::AbstractDict; read_noise=4.48, window_flux_sigma=0.005, window_shift_sigma=(0.05, 5.0),
+function ImageInstrument(bases::AbstractDict; read_noise=4.48, model_error=0.0, window_flux_sigma=0.005, window_shift_sigma=(0.05, 5.0),
     window_shape_sigma=0.0, transit_flux_sigma=0.02, transit_shift_sigma=(0.1, 5.0), transit_shape_sigma=1.0,
     nshapes=minimum(OctofitterGaia.nshapes, values(bases)), bad_sigma=50.0, bad_fraction=0.05)
     isempty(bases) && throw(ArgumentError("an instrument needs at least one device"))
@@ -78,10 +84,10 @@ function ImageInstrument(bases::AbstractDict; read_noise=4.48, window_flux_sigma
     allequal(b.wavenumber_range for b in values(bases)) || throw(ArgumentError("the devices' bases differ in wavenumber range"))
     (nshapes == 0 || allequal(size(b.modes, 2) for b in values(bases))) ||
         throw(ArgumentError("the devices' shape modes differ in chromatic degree"))
-    all(>=(0), (read_noise, window_flux_sigma, window_shift_sigma..., window_shape_sigma, transit_flux_sigma,
+    all(>=(0), (read_noise, model_error, window_flux_sigma, window_shift_sigma..., window_shape_sigma, transit_flux_sigma,
         transit_shift_sigma..., transit_shape_sigma, bad_fraction)) || throw(ArgumentError("widths must not be negative"))
     bad_sigma > 0 || throw(ArgumentError("bad_sigma must be positive"))
-    return ImageInstrument(Dict{String,ImageBasis}(String(k) => v for (k, v) in bases), read_noise, window_flux_sigma,
+    return ImageInstrument(Dict{String,ImageBasis}(String(k) => v for (k, v) in bases), read_noise, model_error, window_flux_sigma,
         Float64.(Tuple(window_shift_sigma)), window_shape_sigma, transit_flux_sigma, Float64.(Tuple(transit_shift_sigma)),
         transit_shape_sigma, nshapes, bad_sigma, bad_fraction)
 end
@@ -370,7 +376,7 @@ function _image_transit_loglike(::Type{T}, d::EpochImages, t, w, z, rate, moment
     wins = d.transit_windows[t]
     it = d.transit_modes
     Kw, Kt, P = length(d.window_modes), length(it), 5 + M
-    ron2 = inst.read_noise^2
+    ron2, me2 = inst.read_noise^2, inst.model_error^2
     ll_good, ll_bad = @no_escape buf begin
         G, Gb = @alloc(T, P, P), @alloc(T, P, P)
         A, V = @alloc(T, Kw, Kw), @alloc(T, Kw, Kt + 1)
@@ -405,7 +411,7 @@ function _image_transit_loglike(::Type{T}, d::EpochImages, t, w, z, rate, moment
                 nvalid += 1
                 _sample_vector!(uP, basis, win, i, j, ws, zs, electrons, cvecs, Val(M), Val(NM))
                 μ, m = _sample_mean(u, win.background, shape)
-                var = max(μ, zero(μ)) + ron2
+                var = max(μ, zero(μ)) + ron2 + me2 * m^2
                 varb = var + inst.bad_sigma^2 + (inst.bad_fraction * m)^2
                 u[P] = y - μ
                 acc_good += log(var)
@@ -461,8 +467,8 @@ function _window_design(d::EpochImages, iwin::Integer, ws, zs, rate, moments, sh
         s = 1 + i + j * win.n_al
         u = view(U, s, :)
         _sample_vector!(u, basis, win, i, j, ws, zs, electrons, cvecs, vM, vNM)
-        mean[s], _ = _sample_mean(u, win.background, shape)
-        variance[s] = max(mean[s], 0.0) + inst.read_noise^2
+        mean[s], m = _sample_mean(u, win.background, shape)
+        variance[s] = max(mean[s], 0.0) + inst.read_noise^2 + (inst.model_error * m)^2
     end
     return U, mean, variance
 end

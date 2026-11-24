@@ -111,8 +111,8 @@ Of the observation itself, all optional:
     light that is left in a deblended spectrum;
   - `flux_scale`, a factor on every emitter's electrons in the images (the
     absolute flux calibration of the model against the windows);
-  - `psf1`, `psf2`, …: coefficients of the devices' shape modes that are
-    common to all the source's windows;
+  - `psf1`, `psf2`, … (up to `psf6`): coefficients of the devices' shape
+    modes that are common to all the source's windows;
   - `jitter_al`, `jitter_ac` [mas]: the width of the per-transit shift of
     the scene, instead of the instrument's `transit_shift_sigma`.
 """
@@ -300,7 +300,9 @@ end
 @inline _shape(θ) = hasproperty(θ, :psf1) ? (θ.psf1, _shape2(θ)...) : ()
 @inline _shape2(θ) = hasproperty(θ, :psf2) ? (θ.psf2, _shape3(θ)...) : ()
 @inline _shape3(θ) = hasproperty(θ, :psf3) ? (θ.psf3, _shape4(θ)...) : ()
-@inline _shape4(θ) = hasproperty(θ, :psf4) ? (θ.psf4,) : ()
+@inline _shape4(θ) = hasproperty(θ, :psf4) ? (θ.psf4, _shape5(θ)...) : ()
+@inline _shape5(θ) = hasproperty(θ, :psf5) ? (θ.psf5, _shape6(θ)...) : ()
+@inline _shape6(θ) = hasproperty(θ, :psf6) ? (θ.psf6,) : ()
 
 @inline function _jitter(θ_obs, inst::ImageInstrument)
     (hasproperty(θ_obs, :jitter_al) || hasproperty(θ_obs, :jitter_ac)) || return nothing
