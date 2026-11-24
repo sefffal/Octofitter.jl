@@ -281,9 +281,33 @@ function _find_best_iad_correction(iad, n_corrupt)
     return best_reject, best_partial
 end
 
-function _correct_iad_corruption(iad)
-    n_corrupt = _detect_iad_corruption(iad)
-    n_corrupt == 0 && return iad, false
+# Threshold on `_iad_catalog_shift` below which a table is taken as
+# consistent and left alone, and the stricter one a repair must reach before
+# it is accepted (a repair re-pairs data, so it has to be clearly right).
+const _IAD_CONSISTENT_SHIFT = 0.1
+const _IAD_REPAIRED_SHIFT = 0.02
+
+"""
+    _iad_catalog_shift(iad) -> Float64
+
+Consistency check for an IAD table (Octofitter.jl#167). The residuals were
+computed against the catalogue solution, so a weighted least-squares fit of the
+five-parameter model to them must return ≈ 0. Returns the largest such shift in
+units of its formal σ. Rejected scans (`sres ≤ 0`) are left out. Checking the
+five base columns is also valid for 7- and 9-parameter solutions, whose
+residuals are orthogonal to a superset of them.
+"""
+function _iad_catalog_shift(iad)
+    ok = iad.sres .> 0
+    dt = iad.epoch_yrs
+    A = [iad.parf iad.cosϕ iad.sinϕ dt .* iad.cosϕ dt .* iad.sinϕ][ok, :]
+    w = 1 ./ iad.sres[ok] .^ 2
+    N = A' * (w .* A)
+    Δ = N \ (A' * (w .* iad.res[ok]))
+    return maximum(abs.(Δ ./ sqrt.(diag(inv(N)))))
+end
+
+function _repair_iad(iad, n_corrupt)
     indices_to_remove, _ = _find_best_iad_correction(iad, n_corrupt)
     n = length(iad.epoch_yrs)
     # Drop the repeated residuals from the tail and the identified orbits'
@@ -292,7 +316,7 @@ function _correct_iad_corruption(iad)
     keep_resid[[n - i + 1 for i in 1:n_corrupt]] .= false
     keep_orbit = trues(n)
     keep_orbit[indices_to_remove] .= false
-    out = FlexTable(
+    return FlexTable(
         iorb=iad.iorb[keep_orbit],
         epoch_yrs=iad.epoch_yrs[keep_orbit],
         parf=iad.parf[keep_orbit],
@@ -303,5 +327,27 @@ function _correct_iad_corruption(iad)
         reject=iad.reject[keep_resid],
         sres_renorm=iad.sres_renorm[keep_resid],
     )
-    return out, true
+end
+
+# The number of shifted records is decided from the data (Octofitter.jl#167):
+# most corrupted files have one or two, which the fixed `_detect_iad_corruption`
+# signature (three) never sees. A consistent table is left alone; otherwise
+# n = 1, 2, 3 are tried in turn and the first repair that passes the
+# consistency check is kept. If none does, the original signature-based
+# correction is applied as before, or the table is returned unchanged.
+function _correct_iad_corruption(iad)
+    shift = _iad_catalog_shift(iad)
+    shift <= _IAD_CONSISTENT_SHIFT && return iad, false
+    for n_corrupt in 1:3
+        length(iad.epoch_yrs) > n_corrupt + 5 || break
+        out = _repair_iad(iad, n_corrupt)
+        _iad_catalog_shift(out) < _IAD_REPAIRED_SHIFT && return out, true
+    end
+    n_corrupt = _detect_iad_corruption(iad)
+    if n_corrupt == 0
+        @warn "Hipparcos IAD residuals are inconsistent with the catalogue " *
+              "solution and no corruption repair was found; using them as-is." shift
+        return iad, false
+    end
+    return _repair_iad(iad, n_corrupt), true
 end

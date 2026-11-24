@@ -396,3 +396,50 @@ end
     @test model2.D == model1.D   # the companion adds no free parameters
     @test model1.ℓπcallback(θt) ≈ model2.ℓπcallback(model2.link(θ)) rtol=1e-12
 end
+
+# Java-tool IAD corruption repair (Octofitter.jl#167). The corruption inserts
+# n spurious geometry records and leaves n junk residuals at the end of the
+# table, so every residual after the first insertion is paired with the wrong
+# scan. The fixed `_detect_iad_corruption` signature only recognises n = 3;
+# the repair now decides n from a consistency check on the residuals. Oracle:
+# a synthetic, exactly consistent table, corrupted by hand, must be recovered
+# bit for bit for every n, and left untouched when it is not corrupted.
+@testset "IAD corruption repair decides n from the data (#167)" begin
+    rng = Xoshiro(167)
+    m = 120
+    iorb = repeat(1:30, inner=4)
+    epoch_yrs = sort(rand(rng, m) .* 3 .- 1.2)
+    ϕ = rand(rng, m) .* 2π
+    cosϕ, sinϕ = cos.(ϕ), sin.(ϕ)
+    parf = randn(rng, m)
+    sres = 1 .+ 2 .* rand(rng, m)
+    A = [parf cosϕ sinϕ epoch_yrs .* cosϕ epoch_yrs .* sinϕ]
+    w = 1 ./ sres .^ 2
+    e = sres .* randn(rng, m)
+    res = e .- A * ((A' * (w .* A)) \ (A' * (w .* e)))   # weighted-LS residuals
+    mk(iorb, ey, pf, c, s, r, sr) = FlexTable(; iorb, epoch_yrs=ey, parf=pf,
+        cosϕ=c, sinϕ=s, res=r, sres=sr, reject=sr .<= 0, sres_renorm=sr)
+    clean = mk(iorb, epoch_yrs, parf, cosϕ, sinϕ, res, sres)
+
+    @test Octofitter._iad_catalog_shift(clean) < 1e-8
+    out, corrected = Octofitter._correct_iad_corruption(clean)
+    @test !corrected
+    @test out === clean
+
+    for (n, inserted) in ((1, [37]), (2, [20, 81]), (3, [15, 60, 99]))
+        # Spurious geometry rows at `inserted` (in the corrupted indexing),
+        # junk residuals (a repeat of the last one) appended at the end.
+        keep = setdiff(1:m+n, inserted)
+        g(v, junk) = (x = similar(v, m + n); x[keep] = v; x[inserted] .= junk; x)
+        bad = mk(g(iorb, iorb[end]), g(epoch_yrs, 0.5), g(parf, 0.3),
+                 g(cosϕ, 0.6), g(sinϕ, 0.8),
+                 vcat(res, fill(res[end], n)), vcat(sres, fill(sres[end], n)))
+        @test Octofitter._iad_catalog_shift(bad) > Octofitter._IAD_CONSISTENT_SHIFT
+        out, corrected = Octofitter._correct_iad_corruption(bad)
+        @test corrected
+        @test out.res == res
+        @test out.parf == parf
+        @test out.cosϕ == cosϕ
+        @test out.epoch_yrs == epoch_yrs
+    end
+end
