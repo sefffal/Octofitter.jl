@@ -370,7 +370,10 @@ function process_rv_data(d_filt, inst_names; sysname, use_gp, source_name="")
     # Create observations for each instrument
     observations = map(inst_names) do name
         dat = d_filt[d_filt.ins_name .== name, :]
-        dat.epoch .= dat.rjd
+        # Octofitter epochs are always MJD (JD - 2400000.5). DACE and its .rdb
+        # files give reduced Julian dates instead (rjd = JD - 2400000), so
+        # convert here, once, at input: MJD = rjd - 0.5.
+        dat.epoch .= dat.rjd .- 0.5
         dat.rv .= dat.rv
         dat.σ_rv .= dat.rv_err
         dat.rv .-= median(dat.rv)
@@ -432,6 +435,8 @@ for rdb_file in rdb_files
 
     # Create DataFrame from RDB data
     # Columns: rjd, vrad, svrad, s_mw, sig_s, ha, sig_ha, weight
+    # (rjd is a reduced Julian date, JD - 2400000, not MJD; `process_rv_data`
+    # converts it to MJD.)
     d = DataFrame(
         rjd = Float64.(d_raw[:, 1]),
         rv = Float64.(d_raw[:, 2]),      # vrad
