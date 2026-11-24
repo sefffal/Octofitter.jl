@@ -35,8 +35,14 @@ chromatic image basis that `ImageBasis` reads, for the 2-D AF windows of
 both fields of view and the nine AF strips, from GaiaTwin's wavefront
 optics. It is the stand-in instrument until the basis is calibrated on DR4
 epoch images, and it needs a GaiaTwin checkout (the script sets up its own
-temporary environment). 68 MB at the default 4 × 12 mas sampling over
-±900 × ±1800 mas.
+temporary environment). AF1 (`ccd1`) has samples of two pixels across scan.
+
+Each device also gets shape modes: the leading principal components of the
+change of its chromatic terms over an ensemble of perturbed optics, scaled
+so that a unit coefficient is one standard deviation of the ensemble. The
+image likelihood marginalises over them per transit. `IMAGE_BASIS_NMODES`
+in the environment sets how many are kept (3). With three modes the
+product is 156 MB at the default 4 × 12 mas sampling over ±900 × ±1800 mas.
 
 ## Fixtures
 

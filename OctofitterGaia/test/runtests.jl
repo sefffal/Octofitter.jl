@@ -1,4 +1,4 @@
-# OctofitterGaia: the emitter layer, the RVS likelihood and the image basis.
+# OctofitterGaia: the emitter layer, the RVS likelihood and the image likelihood.
 #
 # These tests run on small fixtures (see fixtures/): a few MIST isochrones
 # around solar age and metallicity, the main-sequence part of a spectral
