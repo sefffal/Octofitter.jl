@@ -54,6 +54,9 @@ hierarchy convention may be named.
 
 # What changed inside
 
+v8 added `2log|J|`, i.e. a prior ∝ |J|², where the paper's prior is ∝ |J|.
+v9 adds `log|J|`, so fits made with v8's wrapper will differ.
+
 v8 recovered each epoch's solution by scanning the planet's solution vector
 for `sol.t == epoch`, falling back to re-solving the orbit when no match was
 found — O(N) per epoch, and a silent fallback for `AbsoluteVisual` orbits,
@@ -161,7 +164,10 @@ function ln_like(obs::ObsPriorONeil2019, ctx::ObsContext)
             jac += abs(3M * (e + cos(E)) + 2 * (-2 + e^2 + e * cos(E)) * sin(E))
         end
         jac *= cbrt(P) / sqrt(1 - e^2)
-        ll += 2log(jac)
+        # The prior is ∝ |J| (the paper's eq. 36a). v8 added `2log(jac)`, a
+        # sign-flipped carry-over of E-Fit's `-2log(jac)`, which is a χ² term
+        # (χ² = −2 ln L) and so means `+log(jac)` here.
+        ll += log(jac)
     end
     return ll
 end
