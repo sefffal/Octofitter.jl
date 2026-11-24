@@ -937,6 +937,22 @@ central(f, x, i; h=1e-6) = (f(x .+ h .* (eachindex(x) .== i)) .- f(x .- h .* (ea
             @test_throws DimensionMismatch image_transit_loglike_gradient!(gw, gz, gr, gm, zeros(2), small, 1, w, z, rate, mom; buf)
         end
 
+        # absurd scenes (rates of 10¹⁵⁰ e⁻ s⁻¹, chromatic moments and shape coefficients far outside their range,
+        # where an optimiser can wander) are impossible or merely improbable, never a huge likelihood from the
+        # residual's lost digits. (Which of them comes out −Inf can differ between the two routes there.)
+        let worst = -Inf
+            for t in 1:nt, s in (1e100, 1e150, 1e170), c1 in (-126.0, 0.0, 40.0), sh in ((0.0, 0.0, 0.0), (-203.0, 81.0, -18.0))
+                sw, sz, srate, smom = scene(t)
+                smom = copy(smom)
+                smom[1, :] .+= c1
+                smom[2, :] .+= 20.0 * (c1 != 0)
+                l1, l2 = image_transit_loglike(data, t, sw, sz, s .* srate, smom; shape=sh, buf)
+                res = image_transit_loglike_gradient!(zero(sw), zero(sz), zeros(2), zeros(6, 2), zeros(3), data, t, sw, sz, s .* srate, smom; shape=sh, buf)
+                worst = max(worst, l1, l2, res.ll)
+            end
+            @test worst < 0
+        end
+
         # what the data container refuses
         @test_throws ArgumentError EpochImages(table()[[1, 10, 2]], inst)                       # a transit's rows are not adjacent
         @test_throws ArgumentError EpochImages(Table(table(); device=fill("fov9_ccd1", nt * nccd)), inst)

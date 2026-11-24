@@ -196,6 +196,7 @@ function _transit_solve_adjoint!(Hbar::AbstractMatrix, pbar::AbstractVector, H::
         Hbar[Kt+1, a] = -x
         quad -= H[a, Kt+1] * x
     end
+    quad < 0 && return Inf                      # all digits lost, as in `_transit_solve!`
     @inbounds for a in 1:Kt
         for b in 1:Kt
             Hbar[a, b] += Hbar[a, Kt+1] * Hbar[b, Kt+1]

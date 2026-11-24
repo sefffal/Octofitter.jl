@@ -334,7 +334,11 @@ function _transit_solve!(H::AbstractMatrix, sigma_t)
     logdet == -Inf && return oftype(logdet, Inf)
     h = view(H, Kt + 1, 1:Kt)
     _forward_small!(h, A)
-    return H[Kt+1, Kt+1] - sum(abs2, h) + logdet - logprec
+    # The residual's quadratic form is a Schur complement of a positive semi-definite Gram matrix. Negative means
+    # its cancellation lost every digit (rates of 10¹⁵⁰ e⁻ s⁻¹ do it), which would read as an enormous likelihood.
+    quad = H[Kt+1, Kt+1] - sum(abs2, h)
+    quad < 0 && return oftype(quad, Inf)
+    return quad + logdet - logprec
 end
 
 """
@@ -443,6 +447,9 @@ function _image_transit_loglike(::Type{T}, d::EpochImages, t, w, z, rate, moment
         ok ? (-(acc_good + c) / 2, -(acc_bad + c) / 2) : (T(-Inf), T(-Inf))
     end
     p = d.p_bad[t]
+    # A state that is not finite is a numerical failure (a factorisation or the residual's cancellation), not a
+    # transit the other state explains: the whole transit is impossible, as in the hand-written gradient.
+    (isfinite(ll_good) && (p == 0 || isfinite(ll_bad))) || return T(-Inf), T(-Inf)
     ll = p == 0 ? ll_good : _logaddexp(log1p(-p) + ll_good, log(p) + ll_bad)
     return ll, ll_good
 end
